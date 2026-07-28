@@ -1,0 +1,39 @@
+{
+  "format_version": 1,
+  "dataset": "SecPO Qwen3.6-27B offline preference dataset",
+  "records": 19157,
+  "raw_filename": "preference_Qwen3.6-27B_dpo_NaiveCompletion_randpos_synthetic_alpaca_optimized.json",
+  "raw_size_bytes": 99314808,
+  "raw_sha256": "cd349baa406eae0bf7e4ee2d938d087d6656469d88076d68ba76baeb7e5ec669",
+  "compression": "gzip --no-name --best",
+  "compressed_size_bytes": 31771837,
+  "compressed_sha256": "f2515db72ca5058f190f1b5d32d70915bdfd91d90629269f6a2965ac052f18be",
+  "part_size_bytes": 7000000,
+  "parts": [
+    {
+      "file": "dataset.json.gz.part-00",
+      "size_bytes": 7000000,
+      "sha256": "835a7a2eb7a1da5a542e53efe3d70895f7332442b3dd75d62ef8e57f7746e7dc"
+    },
+    {
+      "file": "dataset.json.gz.part-01",
+      "size_bytes": 7000000,
+      "sha256": "2ff033411817917ae71431a2b6f7ac21443b0834c058cd4953e9fd1d54b47606"
+    },
+    {
+      "file": "dataset.json.gz.part-02",
+      "size_bytes": 7000000,
+      "sha256": "bd540b0c27e9d84b806e2e94877edbe158860e7721f97962e1517ddc31c49a2a"
+    },
+    {
+      "file": "dataset.json.gz.part-03",
+      "size_bytes": 7000000,
+      "sha256": "289327151eea147a349cff651879502ecb06a974adfc82378d713d5fd9091e0e"
+    },
+    {
+      "file": "dataset.json.gz.part-04",
+      "size_bytes": 3771837,
+      "sha256": "6a1cd1b9224236ddc5bc339fd38e082a28c2d254ac4ad7012ac9042873687e73"
+    }
+  ]
+}
