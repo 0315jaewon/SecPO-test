@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "secpo-anonymous"
+version = "0.1.0"
+description = "Anonymous reference implementation of benign-reference SecPO training"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "torch==2.11.0",
+  "transformers==5.5.4",
+  "peft==0.19.1",
+  "datasets==4.8.5",
+  "accelerate==1.13.0",
+  "safetensors==0.7.0",
+]
+
+[project.optional-dependencies]
+distributed = ["deepspeed==0.18.9"]
+test = ["pytest>=8.0,<10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

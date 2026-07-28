@@ -1,0 +1,3 @@
+data/*.jsonl.gz binary
+data/*.json.gz binary
+data/qwen36_offline_dataset/*.part-* binary
