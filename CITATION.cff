@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the SecPO paper and this repository."
+title: "SecPO: Principled Adversarial Training for Prompt Injection Security"
+type: software
+version: 0.3.0
+authors:
+  - family-names: "Chen"
+    given-names: "Sizhe"
+  - family-names: "Peng"
+    given-names: "Yibo"
+  - family-names: "Chang"
+    given-names: "Jaewon"
+  - family-names: "Sitawarin"
+    given-names: "Chawin"
+  - family-names: "Wagner"
+    given-names: "David"
+repository-code: "https://github.com/Sizhe-Chen/SecPO"
+abstract: >-
+  Clean reference implementation of benign-reference Security Preference
+  Optimization training and the main prompt-injection evaluation pipelines.

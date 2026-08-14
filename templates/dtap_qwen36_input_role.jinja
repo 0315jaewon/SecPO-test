@@ -1,0 +1,153 @@
+{#
+  Qwen3.6 tool-use template for DTap instruction-hierarchy evaluation.
+
+  Trusted agent instructions, user requests, and clean tool schemas use the
+  user role. Messages tagged name="dtap_untrusted", explicit input messages,
+  and tool returns use the lower-trust input role. The qwen_input DTap backend
+  owns the compatibility tag; it is never shown to the model.
+#}
+{%- set untrusted_name = "dtap_untrusted" %}
+{%- set untrusted_tool_result_name = "dtap_untrusted_tool_result" %}
+{%- set trusted_tool_result_name = "dtap_trusted_tool_result" %}
+{%- set tool_injection_boundary = "\ue000DTAP_TOOL_INPUT_ROLE_BOUNDARY\ue001" %}
+{%- set image_count = namespace(value=0) %}
+{%- set video_count = namespace(value=0) %}
+{%- macro render_content(content, do_vision_count) %}
+    {%- if content is string %}
+        {{- content }}
+    {%- elif content is iterable and content is not mapping %}
+        {%- for item in content %}
+            {%- if 'image' in item or 'image_url' in item or item.type == 'image' %}
+                {%- if do_vision_count %}
+                    {%- set image_count.value = image_count.value + 1 %}
+                {%- endif %}
+                {%- if add_vision_id %}
+                    {{- 'Picture ' ~ image_count.value ~ ': ' }}
+                {%- endif %}
+                {{- '<|vision_start|><|image_pad|><|vision_end|>' }}
+            {%- elif 'video' in item or item.type == 'video' %}
+                {%- if do_vision_count %}
+                    {%- set video_count.value = video_count.value + 1 %}
+                {%- endif %}
+                {%- if add_vision_id %}
+                    {{- 'Video ' ~ video_count.value ~ ': ' }}
+                {%- endif %}
+                {{- '<|vision_start|><|video_pad|><|vision_end|>' }}
+            {%- elif 'text' in item %}
+                {{- item.text }}
+            {%- else %}
+                {{- raise_exception('Unexpected item type in content.') }}
+            {%- endif %}
+        {%- endfor %}
+    {%- elif content is none or content is undefined %}
+        {{- '' }}
+    {%- else %}
+        {{- raise_exception('Unexpected content type.') }}
+    {%- endif %}
+{%- endmacro %}
+{%- if not messages %}
+    {{- raise_exception('No messages provided.') }}
+{%- endif %}
+
+{#
+  Render each clean tool contract in user role. If its description contains
+  the private backend boundary, render the exact injected suffix immediately
+  after that tool in input role. The marker itself is never shown.
+#}
+{%- if tools and tools is iterable and tools is not mapping %}
+    {{- '<|im_start|>user\n# Tools\n\nYou have access to the following functions.<|im_end|>\n' }}
+    {%- for tool in tools %}
+        {%- set description = tool.function.description|default('') %}
+        {%- set has_injection = tool_injection_boundary in description %}
+        {%- set clean_description = description.split(tool_injection_boundary, 1)[0] %}
+        {%- set clean_tool = {'type': tool.type|default('function'), 'function': {'name': tool.function.name, 'description': clean_description, 'parameters': tool.function.parameters|default({})}} %}
+        {{- '<|im_start|>user\n<tools>\n' }}
+        {{- clean_tool|tojson }}
+        {{- '\n</tools><|im_end|>\n' }}
+        {%- if has_injection %}
+            {%- set injected_description = description.split(tool_injection_boundary, 1)[1] %}
+            {%- set injected_description = injected_description|replace('<|im_start|>', '&lt;|im_start|>')|replace('<|im_end|>', '&lt;|im_end|>') %}
+            {{- '<|im_start|>input\n' + injected_description + '<|im_end|>\n' }}
+        {%- endif %}
+    {%- endfor %}
+    {{- '<|im_start|>user\nIf you choose to call a function ONLY reply in the following format with NO suffix:\n\n<tool_call>\n<function=example_function_name>\n<parameter=example_parameter_1>\nvalue_1\n</parameter>\n<parameter=example_parameter_2>\nThis is the value for the second parameter\nthat can span\nmultiple lines\n</parameter>\n</function>\n</tool_call>\n\n<IMPORTANT>\nReminder:\n- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags\n- Required parameters MUST be specified\n- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after\n- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls\n</IMPORTANT><|im_end|>\n' }}
+{%- endif %}
+
+{%- set ns = namespace(last_trusted_query_index=messages|length - 1) %}
+{%- for message in messages[::-1] %}
+    {%- set index = (messages|length - 1) - loop.index0 %}
+    {%- if message.role == 'user' and (message.name|default(''))[:14] != untrusted_name %}
+        {%- set ns.last_trusted_query_index = index %}
+        {%- break %}
+    {%- endif %}
+{%- endfor %}
+
+{%- for message in messages %}
+    {%- set content = render_content(message.content, true) %}
+    {%- set message_name = message.name|default('') %}
+    {%- set is_untrusted = message_name[:14] == untrusted_name %}
+    {%- if message.role == 'system' or message.role == 'developer' %}
+        {{- '<|im_start|>user\n' + content + '<|im_end|>\n' }}
+    {%- elif message.role == 'user' and message_name == trusted_tool_result_name %}
+        {{- '<|im_start|>user\n<tool_response>\n' + content + '\n</tool_response><|im_end|>\n' }}
+    {%- elif message.role == 'user' and not is_untrusted %}
+        {{- '<|im_start|>user\n' + content + '<|im_end|>\n' }}
+    {%- elif message.role == 'input' or message.role == 'tool' or is_untrusted %}
+        {# Prevent untrusted data from synthesizing Qwen role-token IDs. #}
+        {%- set content = content|replace('<|im_start|>', '&lt;|im_start|>')|replace('<|im_end|>', '&lt;|im_end|>') %}
+        {%- if message.role == 'tool' or message_name == untrusted_tool_result_name %}
+            {{- '<|im_start|>input\n<tool_response>\n' + content + '\n</tool_response><|im_end|>\n' }}
+        {%- else %}
+            {{- '<|im_start|>input\n' + content + '<|im_end|>\n' }}
+        {%- endif %}
+    {%- elif message.role == 'assistant' %}
+        {%- set reasoning_content = '' %}
+        {%- if message.reasoning is string %}
+            {%- set reasoning_content = message.reasoning %}
+        {%- elif message.reasoning_content is string %}
+            {%- set reasoning_content = message.reasoning_content %}
+        {%- elif '</think>' in content %}
+            {%- set reasoning_content = content.split('</think>')[0].rstrip('\n').split('<think>')[-1].lstrip('\n') %}
+            {%- set content = content.split('</think>')[-1].lstrip('\n') %}
+        {%- endif %}
+        {%- set reasoning_content = reasoning_content|trim %}
+        {%- if (preserve_thinking is defined and preserve_thinking is true) or (loop.index0 > ns.last_trusted_query_index) %}
+            {{- '<|im_start|>assistant\n<think>\n' + reasoning_content + '\n</think>\n\n' + content }}
+        {%- else %}
+            {{- '<|im_start|>assistant\n' + content }}
+        {%- endif %}
+        {%- if message.tool_calls and message.tool_calls is iterable and message.tool_calls is not mapping %}
+            {%- for tool_call in message.tool_calls %}
+                {%- if tool_call.function is defined %}
+                    {%- set tool_call = tool_call.function %}
+                {%- endif %}
+                {%- if content|trim or not loop.first %}
+                    {{- '\n\n<tool_call>\n<function=' + tool_call.name + '>\n' }}
+                {%- else %}
+                    {{- '<tool_call>\n<function=' + tool_call.name + '>\n' }}
+                {%- endif %}
+                {%- if tool_call.arguments is defined and tool_call.arguments is not string %}
+                    {%- set arguments = tool_call.arguments %}
+                    {%- for argument_name, argument_value in arguments|items %}
+                        {{- '<parameter=' + argument_name + '>\n' }}
+                        {%- set argument_value = argument_value if argument_value is string else argument_value | tojson | safe %}
+                        {{- argument_value }}
+                        {{- '\n</parameter>\n' }}
+                    {%- endfor %}
+                {%- endif %}
+                {{- '</function>\n</tool_call>' }}
+            {%- endfor %}
+        {%- endif %}
+        {{- '<|im_end|>\n' }}
+    {%- else %}
+        {{- raise_exception('Unexpected message role: ' + message.role) }}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+    {{- '<|im_start|>assistant\n' }}
+    {%- if enable_thinking is defined and enable_thinking is false %}
+        {{- '<think>\n\n</think>\n\n' }}
+    {%- else %}
+        {{- '<think>\n' }}
+    {%- endif %}
+{%- endif %}

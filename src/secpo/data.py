@@ -9,13 +9,19 @@ import json
 from pathlib import Path
 from typing import Any
 
-import torch
-
-from .loss import IGNORE_INDEX
+from .constants import IGNORE_INDEX
 
 
 _REQUIRED_FIELDS = frozenset({"prompt", "chosen", "rejected"})
-_OPTIONAL_FIELDS = frozenset({"id", "clean_prompt", "rejected_input_whole"})
+_OPTIONAL_FIELDS = frozenset(
+    {
+        "id",
+        "clean_prompt",
+        "rejected_input_whole",
+        "attack_goal",
+        "witness",
+    }
+)
 _ALLOWED_FIELDS = _REQUIRED_FIELDS | _OPTIONAL_FIELDS
 
 
@@ -32,13 +38,16 @@ class PreferenceExample:
     chosen: str
     rejected: str
     id: str | None = None
+    attack_goal: str | None = None
+    witness: str | None = None
 
     def to_dict(self) -> dict[str, str]:
         """Return a JSON- and ``datasets``-compatible representation."""
 
         record = asdict(self)
-        if record["id"] is None:
-            del record["id"]
+        for optional in ("id", "attack_goal", "witness"):
+            if record[optional] is None:
+                del record[optional]
         return record
 
 
@@ -224,12 +233,21 @@ def validate_preference_record(
                 f"{_where(row_index)} field 'id' must be a non-empty string"
             )
 
+    optional_text: dict[str, str | None] = {}
+    for field in ("attack_goal", "witness"):
+        value = record.get(field)
+        if value is not None:
+            value = _require_nonempty_string(record, field, row_index=row_index)
+        optional_text[field] = value
+
     return PreferenceExample(
         id=example_id,
         prompt=prompt,
         clean_prompt=clean_prompt,
         chosen=chosen,
         rejected=rejected,
+        attack_goal=optional_text["attack_goal"],
+        witness=optional_text["witness"],
     )
 
 
@@ -364,6 +382,8 @@ class BenignReferenceCollator:
             )
 
     def _tokenize(self, text: str) -> list[int]:
+        import torch
+
         encoded = self.tokenizer(text, add_special_tokens=False)
         if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
             raise TypeError("tokenizer output must be a mapping containing input_ids")
@@ -392,6 +412,8 @@ class BenignReferenceCollator:
         *,
         pad_value: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        import torch
+
         max_length = max(len(sequence) for sequence in sequences)
         values = torch.full(
             (len(sequences), max_length),

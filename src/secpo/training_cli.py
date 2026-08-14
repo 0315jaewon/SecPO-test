@@ -1,4 +1,4 @@
-"""JSON-configured entry point for the released SecPO training runs."""
+"""Shared JSON-configured CLI for the released Llama and Qwen SecPO runs."""
 
 from __future__ import annotations
 
@@ -8,10 +8,11 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 from typing import Any, Sequence
 
-# Keep this anonymous artifact self-contained and local-only with respect to
-# experiment reporting. Model files may still be downloaded from the model hub.
+# Keep the release self-contained and local-only with respect to experiment
+# reporting. Model files may still be downloaded from the model hub.
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["DISABLE_TELEMETRY"] = "1"
 
@@ -20,6 +21,7 @@ from peft import LoraConfig, TaskType, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 
 from .data import BenignReferenceCollator, load_preference_dataset
+from .online_training import FileAttackExchange, OnlineAttackCollator
 from .trainer import SecPOTrainer
 
 
@@ -28,6 +30,7 @@ class SecPOTrainingConfig:
     """Strict schema for a released main-experiment JSON configuration."""
 
     model_name_or_path: str
+    model_revision: str
     data_file: str
     output_dir: str
     beta: float
@@ -47,8 +50,12 @@ class SecPOTrainingConfig:
     logging_steps: int
     save_strategy: str
     report_to: str
+    save_steps: int = 500
     max_prompt_length: int | None = None
     seed: int = 42
+    data_seed: int | None = None
+    dataloader_drop_last: bool = False
+    max_steps: int = -1
     attn_implementation: str | None = None
     torch_dtype: str = "bfloat16"
     optim: str = "adamw_torch"
@@ -57,11 +64,16 @@ class SecPOTrainingConfig:
     ddp_find_unused_parameters: bool = False
     append_eos: bool = True
     trust_remote_code: bool = False
+    online_exchange_dir: str | None = None
+    online_timeout_seconds: float = 1800.0
+    online_poll_seconds: float = 1.0
+    online_retain_files: bool = False
 
 
 _REQUIRED_CONFIG_FIELDS = frozenset(
     {
         "model_name_or_path",
+        "model_revision",
         "data_file",
         "output_dir",
         "beta",
@@ -127,6 +139,27 @@ def _public_model_id(value: Any) -> str:
     return value
 
 
+def _immutable_model_revision(value: Any) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{40}", value) is None:
+        raise ValueError(
+            "model_revision must be a lowercase 40-character commit digest"
+        )
+    return value
+
+
+def _validate_online_checkpoint_publication(config: SecPOTrainingConfig) -> None:
+    """Require a loadable current-policy adapter after every optimizer step."""
+
+    if config.online_exchange_dir is None:
+        return
+    if config.save_strategy != "steps" or config.save_steps != 1:
+        raise ValueError(
+            "online current-policy training requires save_strategy='steps' "
+            "and save_steps=1 so every optimizer step publishes a PEFT "
+            "checkpoint for the attack worker"
+        )
+
+
 def parse_training_config(raw: dict[str, Any]) -> SecPOTrainingConfig:
     """Validate a decoded configuration object and return its typed form."""
 
@@ -144,6 +177,7 @@ def parse_training_config(raw: dict[str, Any]) -> SecPOTrainingConfig:
 
     values = dict(raw)
     values["model_name_or_path"] = _public_model_id(values["model_name_or_path"])
+    values["model_revision"] = _immutable_model_revision(values["model_revision"])
     for name in ("data_file", "output_dir"):
         if not isinstance(values[name], str) or not values[name].strip():
             raise ValueError(f"{name} must be a non-empty string")
@@ -176,6 +210,8 @@ def parse_training_config(raw: dict[str, Any]) -> SecPOTrainingConfig:
         "ddp_find_unused_parameters",
         "append_eos",
         "trust_remote_code",
+        "online_retain_files",
+        "dataloader_drop_last",
     ):
         if name in values and type(values[name]) is not bool:
             raise ValueError(f"{name} must be a boolean")
@@ -204,9 +240,11 @@ def parse_training_config(raw: dict[str, Any]) -> SecPOTrainingConfig:
     _positive_int("logging_steps", values["logging_steps"])
     if values["save_strategy"] not in {"no", "steps", "epoch"}:
         raise ValueError("save_strategy must be one of: no, steps, epoch")
+    if "save_steps" in values:
+        _positive_int("save_steps", values["save_steps"])
     if values["report_to"] != "none":
         raise ValueError(
-            "report_to must be 'none' in the anonymous release; external "
+            "report_to must be 'none' in the clean release; external "
             "experiment telemetry is disabled"
         )
 
@@ -214,6 +252,12 @@ def parse_training_config(raw: dict[str, Any]) -> SecPOTrainingConfig:
         _positive_int("max_prompt_length", values["max_prompt_length"])
     if "seed" in values:
         _positive_int("seed", values["seed"], minimum=0)
+    if "data_seed" in values and values["data_seed"] is not None:
+        _positive_int("data_seed", values["data_seed"], minimum=0)
+    if "max_steps" in values:
+        max_steps = values["max_steps"]
+        if type(max_steps) is not int or max_steps == 0 or max_steps < -1:
+            raise ValueError("max_steps must be -1 or a positive integer")
     if "attn_implementation" in values and values["attn_implementation"] is not None:
         if (
             not isinstance(values["attn_implementation"], str)
@@ -248,10 +292,19 @@ def parse_training_config(raw: dict[str, Any]) -> SecPOTrainingConfig:
             lower=0.0,
             lower_inclusive=True,
         )
+    if values.get("online_exchange_dir") is not None:
+        exchange_dir = values["online_exchange_dir"]
+        if not isinstance(exchange_dir, str) or not exchange_dir.strip():
+            raise ValueError("online_exchange_dir must be a non-empty path or null")
+        values["online_exchange_dir"] = exchange_dir.strip()
+    for name in ("online_timeout_seconds", "online_poll_seconds"):
+        if name in values:
+            _finite_number(name, values[name], lower=0.0)
 
     config = SecPOTrainingConfig(**values)
     if config.bf16 and config.torch_dtype != "bfloat16":
         raise ValueError("bf16=true requires torch_dtype='bfloat16'")
+    _validate_online_checkpoint_publication(config)
     return config
 
 
@@ -281,6 +334,7 @@ def _torch_dtype(name: str) -> torch.dtype:
 def _load_tokenizer(config: SecPOTrainingConfig) -> Any:
     tokenizer = AutoTokenizer.from_pretrained(
         config.model_name_or_path,
+        revision=config.model_revision,
         use_fast=True,
         trust_remote_code=config.trust_remote_code,
     )
@@ -302,6 +356,7 @@ def _load_policy(config: SecPOTrainingConfig) -> torch.nn.Module:
 
     base_model = AutoModelForCausalLM.from_pretrained(
         config.model_name_or_path,
+        revision=config.model_revision,
         **model_kwargs,
     )
     base_model.config.use_cache = False
@@ -362,19 +417,10 @@ def _filter_prompt_budget(
     return dataset
 
 
-def build_trainer(config: SecPOTrainingConfig) -> tuple[SecPOTrainer, Any]:
-    """Construct the policy, validated dataset, collator, and Trainer."""
+def _build_training_arguments(config: SecPOTrainingConfig) -> TrainingArguments:
+    """Build Trainer arguments, keeping model-specific data controls explicit."""
 
-    tokenizer = _load_tokenizer(config)
-    policy = _load_policy(config)
-    dataset = load_preference_dataset(config.data_file)
-    dataset = _filter_prompt_budget(
-        dataset,
-        tokenizer,
-        config.max_prompt_length,
-    )
-
-    training_args = TrainingArguments(
+    return TrainingArguments(
         output_dir=config.output_dir,
         learning_rate=config.learning_rate,
         per_device_train_batch_size=config.per_device_train_batch_size,
@@ -392,18 +438,54 @@ def build_trainer(config: SecPOTrainingConfig) -> tuple[SecPOTrainer, Any]:
         max_grad_norm=config.max_grad_norm,
         logging_steps=config.logging_steps,
         save_strategy=config.save_strategy,
+        save_steps=config.save_steps,
         report_to="none",
         remove_unused_columns=False,
         ddp_find_unused_parameters=config.ddp_find_unused_parameters,
         seed=config.seed,
-        data_seed=config.seed,
+        data_seed=config.seed if config.data_seed is None else config.data_seed,
+        dataloader_drop_last=config.dataloader_drop_last,
+        max_steps=config.max_steps,
     )
-    collator = BenignReferenceCollator(
+
+
+def build_trainer(config: SecPOTrainingConfig) -> tuple[SecPOTrainer, Any]:
+    """Construct the policy, validated dataset, collator, and Trainer."""
+
+    # ``dataclasses.replace``-based CLI overrides bypass JSON parsing, so keep
+    # the online current-policy publication invariant at construction too.
+    _validate_online_checkpoint_publication(config)
+
+    tokenizer = _load_tokenizer(config)
+    policy = _load_policy(config)
+    dataset = load_preference_dataset(config.data_file)
+    dataset = _filter_prompt_budget(
+        dataset,
+        tokenizer,
+        config.max_prompt_length,
+    )
+
+    training_args = _build_training_arguments(config)
+    collator: Any = BenignReferenceCollator(
         tokenizer=tokenizer,
         max_length=config.max_length,
         max_prompt_length=config.max_prompt_length,
         append_eos=config.append_eos,
     )
+    if config.online_exchange_dir is not None:
+        # Keep the exchange in the rank's main process. Multiple DataLoader
+        # workers would each own an independent request sequence.
+        exchange = FileAttackExchange(
+            config.online_exchange_dir,
+            timeout_seconds=config.online_timeout_seconds,
+            poll_seconds=config.online_poll_seconds,
+            retain_files=config.online_retain_files,
+        )
+        collator = OnlineAttackCollator(
+            collator,
+            exchange,
+            rank=int(os.environ.get("RANK", "0")),
+        )
     trainer = SecPOTrainer(
         model=policy,
         args=training_args,
@@ -433,12 +515,23 @@ def _argument_parser() -> argparse.ArgumentParser:
         help="Override the public model id from the JSON configuration.",
     )
     parser.add_argument(
+        "--model-revision",
+        help="Override the model with an immutable 40-character commit digest.",
+    )
+    parser.add_argument(
         "--output-dir",
         help="Override the local output directory from the JSON configuration.",
     )
     parser.add_argument(
         "--resume-from-checkpoint",
         help="Resume from a local Transformers checkpoint directory.",
+    )
+    parser.add_argument(
+        "--online-exchange-dir",
+        help=(
+            "Enable batch-time attack generation through this shared runtime "
+            "directory. Every record must have a stable id."
+        ),
     )
     return parser
 
@@ -449,10 +542,18 @@ def main(argv: Sequence[str] | None = None) -> None:
     overrides: dict[str, Any] = {}
     if args.data_file is not None:
         overrides["data_file"] = args.data_file
+    if args.model_name_or_path is not None and args.model_revision is None:
+        raise SystemExit(
+            "--model-name-or-path requires the matching --model-revision"
+        )
     if args.model_name_or_path is not None:
         overrides["model_name_or_path"] = _public_model_id(args.model_name_or_path)
+    if args.model_revision is not None:
+        overrides["model_revision"] = _immutable_model_revision(args.model_revision)
     if args.output_dir is not None:
         overrides["output_dir"] = args.output_dir
+    if args.online_exchange_dir is not None:
+        overrides["online_exchange_dir"] = args.online_exchange_dir
     config = replace(config, **overrides)
 
     trainer, tokenizer = build_trainer(config)

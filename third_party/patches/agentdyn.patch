@@ -1,0 +1,132 @@
+diff --git a/src/agentdojo/agent_pipeline/__init__.py b/src/agentdojo/agent_pipeline/__init__.py
+index eddfbdb1e..91c98bd0b 100644
+--- a/src/agentdojo/agent_pipeline/__init__.py
++++ b/src/agentdojo/agent_pipeline/__init__.py
+@@ -4,7 +4,6 @@ from agentdojo.agent_pipeline.basic_elements import InitQuery, SystemMessage
+ from agentdojo.agent_pipeline.errors import AbortAgentError
+ from agentdojo.agent_pipeline.ground_truth_pipeline import GroundTruthPipeline
+ from agentdojo.agent_pipeline.llms.anthropic_llm import AnthropicLLM
+-from agentdojo.agent_pipeline.llms.cohere_llm import CohereLLM
+ from agentdojo.agent_pipeline.llms.google_llm import GoogleLLM
+ from agentdojo.agent_pipeline.llms.local_llm import LocalLLM
+ from agentdojo.agent_pipeline.llms.openai_llm import OpenAILLM, OpenAILLMToolFilter
+@@ -13,6 +12,16 @@ from agentdojo.agent_pipeline.pi_detector import PromptInjectionDetector, Transf
+ from agentdojo.agent_pipeline.planner import ToolSelector, ToolUsagePlanner
+ from agentdojo.agent_pipeline.tool_execution import ToolsExecutionLoop, ToolsExecutor
+ 
++
++def __getattr__(name: str):
++    """Load optional provider adapters only when they are requested."""
++    if name == "CohereLLM":
++        from agentdojo.agent_pipeline.llms.cohere_llm import CohereLLM
++
++        return CohereLLM
++    raise AttributeError(name)
++
++
+ __all__ = [
+     "AbortAgentError",
+     "AgentPipeline",
+diff --git a/src/agentdojo/agent_pipeline/agent_pipeline.py b/src/agentdojo/agent_pipeline/agent_pipeline.py
+index b60f5055e..7fb801fd5 100644
+--- a/src/agentdojo/agent_pipeline/agent_pipeline.py
++++ b/src/agentdojo/agent_pipeline/agent_pipeline.py
+@@ -10,7 +10,6 @@ from types import MethodType, SimpleNamespace
+ from typing import Callable, Literal
+ 
+ import anthropic
+-import cohere
+ import openai
+ import requests
+ import yaml
+@@ -21,7 +20,6 @@ from typing_extensions import Self
+ from agentdojo.agent_pipeline.base_pipeline_element import BasePipelineElement
+ from agentdojo.agent_pipeline.basic_elements import InitQuery, SystemMessage
+ from agentdojo.agent_pipeline.llms.anthropic_llm import AnthropicLLM
+-from agentdojo.agent_pipeline.llms.cohere_llm import CohereLLM
+ from agentdojo.agent_pipeline.llms.google_llm import GoogleLLM
+ from agentdojo.agent_pipeline.llms.local_llm import LocalLLM
+ from agentdojo.agent_pipeline.llms.openai_llm import OpenAILLM, OpenAILLMToolFilter
+@@ -449,6 +447,10 @@ def get_llm(provider: str, model: str, model_id: str | None, tool_delimiter: str
+         )
+         llm = PromptingLLM(client, model)
+     elif provider == "cohere":
++        import cohere
++
++        from agentdojo.agent_pipeline.llms.cohere_llm import CohereLLM
++
+         client = cohere.Client()
+         llm = CohereLLM(client, model)
+     elif provider == "google":
+diff --git a/src/agentdojo/benchmark.py b/src/agentdojo/benchmark.py
+index db13a904a..f055f3936 100644
+--- a/src/agentdojo/benchmark.py
++++ b/src/agentdojo/benchmark.py
+@@ -5,7 +5,6 @@ import warnings
+ from collections.abc import Sequence
+ from pathlib import Path
+ 
+-from cohere.core.api_error import ApiError
+ from google.genai.errors import ServerError
+ from openai import BadRequestError, UnprocessableEntityError
+ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
+@@ -20,6 +19,13 @@ from agentdojo.task_suite.load_suites import get_suite
+ from agentdojo.task_suite.task_suite import TaskSuite
+ from agentdojo.types import ChatMessage
+ 
++try:
++    from cohere.core.api_error import ApiError
++except ImportError:
++
++    class ApiError(Exception):
++        """Fallback when the optional Cohere provider is not installed."""
++
+ 
+ class SuiteResults(TypedDict):
+     """The results of running a suite of tasks with a given pipeline."""
+diff --git a/src/agentdojo/scripts/benchmark.py b/src/agentdojo/scripts/benchmark.py
+index e16257d6c..187ad3087 100644
+--- a/src/agentdojo/scripts/benchmark.py
++++ b/src/agentdojo/scripts/benchmark.py
+@@ -41,6 +41,8 @@ def benchmark_suite(
+     if not load_dotenv(".env"):
+         warnings.warn("No .env file found")
+ 
++    if isinstance(suite, str):
++        suite = get_suite(benchmark_version, suite)
+     print(f"Running benchmark for suite: '{suite.name}'")
+     print(f"Using model: '{model}'")
+     if attack is not None:
+@@ -283,6 +285,8 @@ def main(
+             suites,
+             repeat(model),
+             repeat(logdir),
++            repeat(force_rerun),
++            repeat(benchmark_version),
+             repeat(user_tasks),
+             repeat(injection_tasks),
+             repeat(model_id),
+@@ -291,7 +295,8 @@ def main(
+             repeat(tool_delimiter),
+             repeat(system_message_name),
+             repeat(system_message),
+-            repeat(force_rerun),
++            repeat(None),
++            repeat(None),
+         )
+         results = p.starmap(benchmark_suite, arguments)
+ 
+diff --git a/src/agentdojo/types.py b/src/agentdojo/types.py
+index 77519e930..13ab9645e 100644
+--- a/src/agentdojo/types.py
++++ b/src/agentdojo/types.py
+@@ -56,6 +56,9 @@ class ChatAssistantMessage(TypedDict, total=False):
+     tool_calls: Required[list["FunctionCall"] | None]
+     """A list of tool calls that the assistant requests, which can be `None` (if no tool calls are requires are provided)."""
+ 
++    reasoning: str | None
++    """Provider reasoning retained across tool turns but excluded from scored content."""
++
+ 
+ class ChatToolResultMessage(TypedDict, total=False):
+     """Message from the tool with the result of a function call."""

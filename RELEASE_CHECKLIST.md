@@ -1,47 +1,57 @@
-# Anonymous release checklist
+# Public release checklist
 
-Complete this checklist against the exact folder or archive that will be
-submitted.
+Complete this checklist against the exact commit and archive that will be
+published.
 
-- [ ] Publish this folder from a fresh repository, not from the development
-      repository or its history.
-- [ ] Follow `ANONYMOUS_4OPEN_SCIENCE.md`: use a dedicated private source
-      repository, neutral Git identity, pinned reviewed commit, auto-update
-      off, and **Remove when expired**.
-- [ ] Include only the files listed by `find . -type f`; do not add parent
-      folders, checkpoints, caches, virtual environments, logs, results,
-      unlisted datasets, scheduler scripts, or symlinks. The one expected data
-      manifest is `data/qwen36_offline_dataset/manifest.json`.
-- [ ] Do not include API configuration files. Provide credentials only through
-      environment variables at runtime.
-- [ ] Keep public model IDs in configs. Inspect every generated
-      `adapter_config.json`, model card, tokenizer config, and safetensors
-      metadata for serialized cache paths before sharing.
-- [ ] Run `bash scripts/audit_anonymity.sh` and a dedicated secret scanner on
-      the staged release.
-- [ ] Test installation and unit tests from a clean environment without the
-      parent source tree on `PYTHONPATH`.
-- [ ] Run `scripts/reconstruct_dataset.py --verify-only` and confirm all five
-      dataset parts remain at or below 7,000,000 bytes.
-- [ ] Resolve the dataset redistribution license documented in
-      `data/DATASET_CARD.md`; preserve the Stanford Alpaca and cleaned-Alpaca
-      attributions and keep the data license separate from the code license.
-- [ ] Manually review or institutionally accept the heuristic PII-like content
-      flags documented in `data/DATASET_CARD.md`. Do not describe the corpus as
-      free of personal information based only on automated scans.
-- [ ] Add institutionally approved code and dataset licenses before public
-      upload. This anonymous review copy intentionally makes no licensing
-      grant.
-- [ ] Configure Anonymous GitHub redaction terms narrowly. Dataset parts are
-      binary and are served without textual redaction, so all content checks
-      must be completed before pushing.
-- [ ] Open the anonymous URL while logged out, download its ZIP, rerun the
-      reconstruction/content/anonymity audits, and verify the raw SHA-256 is
-      `cd349baa406eae0bf7e4ee2d938d087d6656469d88076d68ba76baeb7e5ec669`.
-- [ ] Build any archive without `.git`, extended attributes, or absolute
-      symlinks. Normalize stored owner/group names, numeric IDs, and timestamps
-      (or use `git archive` from the fresh anonymous repository), inspect the
-      archive headers, extract into a new temporary directory, and rerun all
-      scans.
-- [ ] Do not add the submission PDF to this repository. Anonymous GitHub does
-      not redact binary PDF contents or metadata.
+- [ ] Verify that `CITATION.cff` and `CITATION.bib` contain the agreed
+      five-author citation: Sizhe Chen, Yibo Peng, Jaewon Chang, Chawin
+      Sitawarin, and David Wagner.
+- [ ] Confirm that all relevant copyright holders and institutions authorize
+      distribution of the SecPO-owned code and documentation under
+      Apache-2.0. Verify that this license is not presented as licensing
+      datasets, models, benchmarks, external patches, or other third-party
+      components.
+- [ ] Resolve the separate dataset redistribution license and documented
+      content-review gates in `data/DATASET_CARD.md`.
+- [ ] Publish from fresh Git history containing only this folder. Do not reuse,
+      mirror, or filter the research repository's history.
+- [ ] Validate the exact tree with
+      `python scripts/validate_release_manifest.py`. Every non-Git file must be
+      exactly allowlisted; global denials remain in force.
+- [ ] Run `bash scripts/audit_public_release.sh` and a dedicated secret scanner
+      against both the staged files and reachable Git objects.
+- [ ] Confirm there are no credentials, private endpoints, machine paths,
+      scheduler directives, logs, results, runtime exchanges, caches, model
+      weights, checkpoints, PDFs, notebooks, archives, or symlinks.
+- [ ] Inspect every released model ID, adapter config, model card, tokenizer
+      config, and weight manifest for serialized local cache paths. Weights are
+      distributed separately and are never added here.
+- [ ] Test installation and unit tests in a clean environment without the
+      parent research workspace on `PYTHONPATH`.
+- [ ] Run `scripts/reconstruct_dataset.py --verify-only`; confirm the raw
+      Qwen preference checksum and all five hosting-safe part checksums.
+- [ ] Preserve Stanford Alpaca and cleaned-Alpaca attribution, and keep any
+      dataset license distinct from the project code license.
+- [ ] Re-run the AgentDojo, AgentDyn, and DTap checkout verifiers against fresh
+      clones; confirm immutable commits, upstream licenses, patches/templates,
+      and absence of unrelated modifications.
+- [ ] Resolve the origin and license compatibility of the Genetic/MAP-Elites,
+      PAIR, and TAP implementations; retain all required notices and citations.
+      Do not treat the project Apache-2.0 license as a grant of third-party
+      rights.
+- [ ] Run model-free smoke tests for Llama and Qwen Genetic/PAIR/TAP, Qwen
+      reasoning normalization, exact nine-vote SEP judging, the full
+      AgentDojo paper-80 manifest, and interrupted/resumed search.
+- [ ] For online Llama training, verify that the attack worker observes the
+      current ready-marked policy snapshot during PAIR search and that the
+      defender/attacker exchange is isolated by run ID and fingerprint.
+- [ ] For AlpacaEval2 and SEP Utility, validate the external reference files by
+      row count, generator identity, and SHA-256 before generation or judging.
+- [ ] If releasing merged Qwen or Llama weights separately, rerun the merge
+      from a clean environment, scan generated metadata, shard large files,
+      publish hashes, and document the base-model and adapter licenses.
+- [ ] Build the source archive with `git archive`, inspect its headers and file
+      list, extract it into a fresh directory, and rerun all audits there.
+- [ ] Do not include the submission PDF, proprietary prompts/provider clients,
+      GCG, baselines, ablations, instruction-hierarchy experiments, temporary
+      scripts, checkpoints, or generated experimental state.

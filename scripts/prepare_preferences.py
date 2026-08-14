@@ -2,7 +2,7 @@
 """Validate and minimize SecPO preference records before training.
 
 The converter accepts a JSON array, a single JSON object, or JSON Lines.  It
-writes only the five public schema fields, verifies that attacked and clean
+writes only the documented public schema fields, verifies that attacked and clean
 prompts differ by exactly one contiguous deletion, and rejects ambiguous
 legacy injection removal.  Output is written atomically so a bad row cannot
 leave a partially sanitized dataset behind.
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import hashlib
 import io
 import json
 import os
@@ -21,7 +22,15 @@ from pathlib import Path
 from typing import Any, Iterable, NoReturn
 
 
-PUBLIC_FIELDS = ("id", "prompt", "clean_prompt", "chosen", "rejected")
+PUBLIC_FIELDS = (
+    "id",
+    "prompt",
+    "clean_prompt",
+    "chosen",
+    "rejected",
+    "attack_goal",
+    "witness",
+)
 REQUIRED_FIELDS = ("prompt", "chosen", "rejected")
 LEGACY_INJECTION_FIELD = "rejected_input_whole"
 SAFE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
@@ -190,8 +199,40 @@ def _clean_prompt(record: dict[str, Any], prompt: str, row: str) -> str:
     return clean
 
 
+def _online_pair_id(prompt: str, chosen: str, rejected: str) -> str:
+    hasher = hashlib.sha256(b"secpo-online-pair-id-v1\0")
+    for value in (prompt, chosen, rejected):
+        encoded = value.encode("utf-8")
+        hasher.update(len(encoded).to_bytes(8, "big"))
+        hasher.update(encoded)
+    digest = hasher.hexdigest()[:24]
+    return f"pair-{digest}"
+
+
+def _online_pair_goal(record: dict[str, Any], row: str) -> str:
+    explicit = record.get("attack_goal")
+    legacy = record.get("rejected_input")
+    if explicit is None and legacy is None:
+        _fail(
+            f"{row}: online PAIR mode requires 'attack_goal' or legacy "
+            "'rejected_input'"
+        )
+    values = []
+    for field, value in (("attack_goal", explicit), ("rejected_input", legacy)):
+        if value is None:
+            continue
+        values.append(_validated_text(record, field, row).strip())
+    if len(values) == 2 and values[0] != values[1]:
+        _fail(f"{row}: attack_goal disagrees with legacy rejected_input")
+    return values[0]
+
+
 def _sanitize_record(
-    record: dict[str, Any], index: int, seen_ids: set[str]
+    record: dict[str, Any],
+    index: int,
+    seen_ids: set[str],
+    *,
+    online_pair: bool,
 ) -> dict[str, str]:
     row = f"record {index}"
     prompt = _validated_text(record, "prompt", row)
@@ -219,15 +260,41 @@ def _sanitize_record(
             _fail(f"{row}: duplicate id {record_id!r}")
         seen_ids.add(record_id)
         sanitized = {"id": record_id, **sanitized}
+    elif online_pair:
+        record_id = _online_pair_id(prompt, chosen, rejected)
+        if record_id in seen_ids:
+            _fail(
+                f"{row}: duplicate content-derived online id {record_id!r}"
+            )
+        seen_ids.add(record_id)
+        sanitized = {"id": record_id, **sanitized}
+
+    for field in ("attack_goal", "witness"):
+        if field not in record:
+            continue
+        sanitized[field] = _validated_text(record, field, row)
+    if online_pair:
+        sanitized["attack_goal"] = _online_pair_goal(record, row)
 
     return sanitized
 
 
-def _sanitize(records: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
+def _sanitize(
+    records: Iterable[dict[str, Any]],
+    *,
+    online_pair: bool = False,
+) -> list[dict[str, str]]:
     result: list[dict[str, str]] = []
     seen_ids: set[str] = set()
     for index, record in enumerate(records):
-        result.append(_sanitize_record(record, index, seen_ids))
+        result.append(
+            _sanitize_record(
+                record,
+                index,
+                seen_ids,
+                online_pair=online_pair,
+            )
+        )
     if not result:
         _fail("input contains no preference records")
     return result
@@ -314,6 +381,14 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         help="Fail unless this many records survive validation.",
     )
+    parser.add_argument(
+        "--online-pair",
+        action="store_true",
+        help=(
+            "Require/derive the online PAIR fields: map legacy rejected_input "
+            "to attack_goal and derive a deterministic id when absent."
+        ),
+    )
     return parser
 
 
@@ -322,7 +397,10 @@ def main() -> int:
     if args.expected_records is not None and args.expected_records < 1:
         _fail("--expected-records must be positive")
 
-    records = _sanitize(_load_records(args.input))
+    records = _sanitize(
+        _load_records(args.input),
+        online_pair=args.online_pair,
+    )
     if (
         args.expected_records is not None
         and len(records) != args.expected_records

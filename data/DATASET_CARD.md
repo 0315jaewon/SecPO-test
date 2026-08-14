@@ -4,7 +4,7 @@
 
 This directory contains a lossless, split archive of the exact preference
 dataset used as input to the Qwen3.6-27B offline main experiment. It is an
-anonymous-review artifact, not a newly generated or cleaned derivative.
+exact experimental asset, not a newly generated or cleaned derivative.
 
 **Publication gate:** no dataset license is granted by this review copy.
 Obtain institutional approval for redistribution before uploading the
@@ -13,6 +13,16 @@ published under CC BY-NC 4.0. A conservative candidate for the derived
 dataset is therefore CC BY-NC 4.0 with the upstream attributions below, but
 the authors must confirm that choice and any model-output terms rather than
 inferring a license from this card.
+
+Related published training datasets are available on Hugging Face:
+
+- [Sizhe-Chen/Llama-3.1-8B-Instruct-SecPO-trainset](https://huggingface.co/datasets/Sizhe-Chen/Llama-3.1-8B-Instruct-SecPO-trainset)
+- [Sizhe-Chen/Qwen3.6-27B-Instruct-SecPO-trainset](https://huggingface.co/datasets/Sizhe-Chen/Qwen3.6-27B-Instruct-SecPO-trainset)
+
+Each Hugging Face release card governs the terms of its published artifact.
+Their availability does not itself grant permission to redistribute this
+bundled exact archive or clear the privacy and institutional-review gate
+above.
 
 ## Artifact identity
 
@@ -27,7 +37,7 @@ inferring a license from this card.
 
 The gzip stream has timestamp zero and no embedded source filename. It is
 split into five ordinary Git files of at most 7,000,000 bytes so each remains
-below the public Anonymous GitHub service's documented 8 MB per-file limit.
+below a conservative 7,000,000-byte regular-Git hosting budget.
 `qwen36_offline_dataset/manifest.json` records the ordered part sizes and
 SHA-256 digests. The parts are binary and must not be edited.
 
@@ -82,7 +92,7 @@ python scripts/audit_release_dataset.py \
 
 The prepared gzip is deterministic and contains only `prompt`,
 `clean_prompt`, `chosen`, and `rejected`. Point `DATA_FILE` at that file when
-running `scripts/train_qwen36_offline.sh`.
+running `scripts/train_qwen36_27b_offline.sh`.
 
 ## Construction and provenance
 

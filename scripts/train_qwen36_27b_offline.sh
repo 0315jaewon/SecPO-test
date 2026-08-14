@@ -5,9 +5,10 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 RELEASE_ROOT="$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)"
 cd "${RELEASE_ROOT}"
 
-: "${DATA_FILE:?Set DATA_FILE to a prepared online-preference JSON or JSONL file.}"
-MODEL_NAME="${MODEL_NAME:-meta-llama/Llama-3.1-8B-Instruct}"
-OUTPUT_DIR="${OUTPUT_DIR:-outputs/llama31-online}"
+: "${DATA_FILE:?Set DATA_FILE to a prepared offline-preference JSON or JSONL file.}"
+MODEL_NAME="${MODEL_NAME:-Qwen/Qwen3.6-27B}"
+MODEL_REVISION="${MODEL_REVISION:-6a9e13bd6fc8f0983b9b99948120bc37f49c13e9}"
+OUTPUT_DIR="${OUTPUT_DIR:-outputs/qwen36_27b_offline}"
 ACCELERATE_BIN="${ACCELERATE_BIN:-accelerate}"
 
 if [[ ! -f "${DATA_FILE}" ]]; then
@@ -24,8 +25,9 @@ export WANDB_DISABLED="${WANDB_DISABLED:-true}"
 
 exec "${ACCELERATE_BIN}" launch \
   --config_file configs/accelerate_zero3_8gpu.yaml \
-  --module secpo.train \
-  --config configs/llama31_online.json \
+  --module secpo.training_cli \
+  --config configs/train_qwen36_27b_offline.json \
   --data-file "${DATA_FILE}" \
   --model-name-or-path "${MODEL_NAME}" \
+  --model-revision "${MODEL_REVISION}" \
   --output-dir "${OUTPUT_DIR}"

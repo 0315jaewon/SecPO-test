@@ -13,16 +13,23 @@ status=0
 report_matches() {
   local title="$1"
   local pattern="$2"
+  local excluded_glob="${3:-}"
+  local -a extra_globs=()
   local matches
+  if [[ -n "${excluded_glob}" ]]; then
+    extra_globs+=(--glob "!${excluded_glob}")
+  fi
   matches="$(
-    rg --hidden --line-number --no-heading --color never \
+    rg --hidden --files-with-matches --color never \
       --glob '!.git/**' \
       --glob '!outputs/**' \
       --glob '!checkpoints/**' \
       --glob '!logs/**' \
       --glob '!runs/**' \
+      --glob '!runtime/**' \
       --glob '!wandb/**' \
-      --glob '!scripts/audit_anonymity.sh' \
+      --glob '!scripts/audit_public_release.sh' \
+      "${extra_globs[@]}" \
       --regexp "${pattern}" . || true
   )"
   if [[ -n "${matches}" ]]; then
@@ -41,7 +48,7 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   exit 2
 fi
 
-symlinks="$(find . -type l -print)"
+symlinks="$(find . -path './.git' -prune -o -type l -print)"
 if [[ -n "${symlinks}" ]]; then
   echo "FAIL: symbolic links are not allowed in the release:" >&2
   echo "${symlinks}" >&2
@@ -49,11 +56,12 @@ if [[ -n "${symlinks}" ]]; then
 fi
 
 generated_directories="$(
-  find . -type d \
+  find . -path './.git' -prune -o -type d \
     \( -name '__pycache__' -o -name '.pytest_cache' -o -name '.venv' \
        -o -name 'build' -o -name 'dist' -o -name '*.egg-info' \
        -o -name 'outputs' -o -name 'checkpoints' -o -name 'logs' \
-       -o -name 'runs' -o -name 'wandb' \) \
+       -o -name 'runs' -o -name 'runtime' -o -name 'evaluation_outputs' \
+       -o -name 'adaptive_runs' -o -name 'wandb' \) \
     -print
 )"
 if [[ -n "${generated_directories}" ]]; then
@@ -63,7 +71,7 @@ if [[ -n "${generated_directories}" ]]; then
 fi
 
 generated_artifacts="$(
-  find . -type f \
+  find . -path './.git' -prune -o -type f \
     \( -name '*.safetensors' -o -name '*.bin' -o -name '*.pt' \
        -o -name '*.pth' -o -name '*.ckpt' -o -name '*.pem' \
        -o -name '*.key' -o -name '*.env' -o -name '*.log' \
@@ -80,6 +88,7 @@ unexpected_data="$(
   find data -type f \
     ! -name 'README.md' \
     ! -name 'DATASET_CARD.md' \
+    ! -name 'dtap_qwen36_non_vm_tasks.jsonl' \
     ! -name 'example_preferences.jsonl' \
     ! -path "${DATASET_MANIFEST}" \
     ! -path "${DATASET_DIRECTORY}/dataset.json.gz.part-*" \
@@ -92,7 +101,7 @@ if [[ -n "${unexpected_data}" ]]; then
 fi
 
 large_files="$(
-  find . -type f -size +5M \
+  find . -path './.git' -prune -o -type f -size +5M \
     ! -path "./${DATASET_DIRECTORY}/dataset.json.gz.part-*" \
     -print
 )"
@@ -137,10 +146,9 @@ else
 fi
 
 out_of_scope_paths="$(
-  find . -mindepth 1 \
+  find . -path './.git' -prune -o -mindepth 1 \
     \( -iname '*ablation*' -o -iname '*baseline*' -o -iname '*result*' \
-       -o -iname '*benchmark*' -o -iname '*evaluation*' \
-       -o -iname '*slurm*' \) \
+       -o -iname '*benchmark*' -o -iname '*slurm*' \) \
     -print
 )"
 if [[ -n "${out_of_scope_paths}" ]]; then
@@ -152,15 +160,19 @@ fi
 report_matches \
   "machine-local absolute storage path" \
   '/(home|Users|lustre|checkpoint|scratch|gpfs|nfs|fsx)/'
+# The DTap patch contains one SHA-pinned synthetic benchmark account address.
+# The manifest validator checks that exact match and rejects every replacement
+# or additional address, so the broad shell pass excludes only that one file.
 report_matches \
   "email address" \
-  '[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:]]{2,}'
+  '[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:]]{2,}' \
+  'third_party/patches/dtap.patch'
 report_matches \
   "private-key material" \
   '-----BEGIN ([A-Z0-9 ]+ )?PRIVATE KEY-----'
 report_matches \
   "credential-like token" \
-  '(hf|sk|ghp|glpat)_[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}'
+  '(^|[^[:alnum:]_])((hf|ghp|glpat)_[A-Za-z0-9_-]{16,}|sk-[A-Za-z0-9_-]{16,}|nvapi-[A-Za-z0-9_-]{16,}|github_pat_[A-Za-z0-9_]{20,}|AIza[A-Za-z0-9_-]{35}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|LLM\|[0-9]{8,}\|[A-Za-z0-9_-]{16,})'
 report_matches \
   "embedded credential assignment" \
   '(api[_-]?key|access[_-]?token|secret[_-]?key)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']+'
@@ -168,9 +180,14 @@ report_matches \
   "cluster scheduler directive" \
   '(^|[[:space:]])#SBATCH([[:space:]]|$)|(^|[[:space:]])srun([[:space:]]|$)'
 
+if ! "${PYTHON_BIN}" scripts/validate_release_manifest.py; then
+  echo "FAIL: release-manifest validation failed." >&2
+  status=1
+fi
+
 if [[ "${status}" -ne 0 ]]; then
-  echo "Anonymous-release audit failed." >&2
+  echo "Public-release audit failed." >&2
   exit "${status}"
 fi
 
-echo "Anonymous-release audit passed."
+echo "Public-release audit passed."

@@ -1,0 +1,31 @@
+{
+  "model_name_or_path": "meta-llama/Llama-3.1-8B-Instruct",
+  "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+  "tasks": [
+    {
+      "task": "mmlu_pro",
+      "num_fewshot": 5,
+      "metric": "exact_match,custom-extract"
+    },
+    {
+      "task": "gpqa_diamond_cot_zeroshot",
+      "num_fewshot": 0,
+      "metric": "exact_match,flexible-extract"
+    },
+    {
+      "task": "gsm8k_cot",
+      "num_fewshot": 8,
+      "metric": "exact_match,flexible-extract"
+    },
+    {
+      "task": "minerva_math",
+      "num_fewshot": 4,
+      "metric": "math_verify,none"
+    }
+  ],
+  "batch_size": "auto",
+  "dtype": "bfloat16",
+  "seed": 42,
+  "trust_remote_code": false,
+  "apply_chat_template": true
+}

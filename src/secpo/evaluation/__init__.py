@@ -1,0 +1,71 @@
+"""Dependency-light evaluation utilities for the released SecPO pipeline."""
+
+from .sep_adaptive import (
+    AdaptiveBackend,
+    AdaptiveEvaluationConfig,
+    AdaptiveEvaluationResult,
+    AdaptiveExample,
+    DryRunBackend,
+    evaluate_example,
+    load_backend,
+    load_checkpoint,
+    load_examples,
+    load_judge_backend,
+)
+from .sep_static import (
+    ATTACK_REGISTRY,
+    MODEL_BASIC_ADAPTIVE_ATTACKS,
+    PAPER_STATIC_ATTACKS,
+    SCHEMA_VERSION,
+    AttackSpec,
+    attacks_for_model,
+    build_static_sep_requests,
+    evaluate_static_sep,
+    load_json_records,
+    normalize_model_family,
+    score_static_sep_rows,
+    summarize_static_sep,
+    write_jsonl,
+)
+from .sep_model_policy import (
+    ModelFamilyPolicy,
+    ModelSource,
+    PolicyAppliedBackend,
+    model_family_policy,
+    resolve_model_source,
+)
+from .witness import enforce_non_witness_failures, output_contains_witness
+
+
+__all__ = [
+    "ATTACK_REGISTRY",
+    "AdaptiveBackend",
+    "AdaptiveEvaluationConfig",
+    "AdaptiveEvaluationResult",
+    "AdaptiveExample",
+    "MODEL_BASIC_ADAPTIVE_ATTACKS",
+    "ModelFamilyPolicy",
+    "ModelSource",
+    "PAPER_STATIC_ATTACKS",
+    "PolicyAppliedBackend",
+    "SCHEMA_VERSION",
+    "AttackSpec",
+    "DryRunBackend",
+    "attacks_for_model",
+    "build_static_sep_requests",
+    "enforce_non_witness_failures",
+    "evaluate_example",
+    "evaluate_static_sep",
+    "load_json_records",
+    "load_backend",
+    "load_checkpoint",
+    "load_examples",
+    "load_judge_backend",
+    "model_family_policy",
+    "normalize_model_family",
+    "output_contains_witness",
+    "resolve_model_source",
+    "score_static_sep_rows",
+    "summarize_static_sep",
+    "write_jsonl",
+]

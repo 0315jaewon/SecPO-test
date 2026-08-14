@@ -180,6 +180,49 @@ def test_raw_dataset_auditor_accepts_contract_and_rejects_secret(tmp_path) -> No
     assert "credential-like material" in completed.stderr
 
 
+def test_raw_dataset_auditor_rejects_extended_provider_credentials(tmp_path) -> None:
+    record = {
+        "prompt": "trusted INJECTION data",
+        "chosen": "trusted answer",
+        "rejected": "injected answer",
+        "rejected_input_whole": "INJECTION ",
+        "chosen_input": "trusted",
+        "rejected_input": "injected",
+        "chosen_data": "data",
+        "inject_at_the_end": False,
+    }
+    tokens = (
+        "nvapi" + "-" + ("a" * 20),
+        "github" + "_pat_" + ("b" * 24),
+        "AI" + "za" + ("c" * 35),
+        "xox" + "b-" + ("d" * 16),
+        "LLM" + "|" + "12345678" + "|" + ("e" * 20),
+    )
+
+    for index, token in enumerate(tokens):
+        record["chosen"] = "credential-like " + token
+        source = tmp_path / f"raw-{index}.json"
+        source.write_text(json.dumps([record]), encoding="utf-8")
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(AUDIT),
+                str(source),
+                "--schema",
+                "raw",
+                "--expected-records",
+                "1",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert completed.returncode != 0
+        assert "credential-like material" in completed.stderr
+        assert token not in completed.stderr
+
+
 def test_dataset_auditor_reads_deterministic_gzip_json_lines(tmp_path) -> None:
     records = [
         {

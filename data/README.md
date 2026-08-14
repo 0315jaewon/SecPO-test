@@ -6,10 +6,22 @@ This directory contains two distinct artifacts:
   reconstruct the exact 19,157-record Qwen offline main-experiment dataset.
 - `example_preferences.jsonl`: a tiny synthetic schema fixture used only by
   tests.
+- `dtap_qwen36_non_vm_tasks.jsonl`: the exact 1,838-row malicious-indirect
+  non-VM task-selection manifest used by the released DTap evaluation.
 
 Read `DATASET_CARD.md` before sharing or processing the experimental data.
 It records checksums, provenance, known artifacts, content-review findings,
 and unresolved licensing requirements.
+
+## Published training datasets
+
+- [Sizhe-Chen/Llama-3.1-8B-Instruct-SecPO-trainset](https://huggingface.co/datasets/Sizhe-Chen/Llama-3.1-8B-Instruct-SecPO-trainset)
+- [Sizhe-Chen/Qwen3.6-27B-Instruct-SecPO-trainset](https://huggingface.co/datasets/Sizhe-Chen/Qwen3.6-27B-Instruct-SecPO-trainset)
+
+The release card for each Hugging Face dataset governs that published
+artifact. These links do not resolve or waive the separate redistribution,
+privacy, and institutional-review gates for the exact Qwen archive bundled in
+this directory; consult `DATASET_CARD.md` before publishing this repository.
 
 ## Trainer contract
 
@@ -47,9 +59,41 @@ python scripts/prepare_preferences.py \
   --output /tmp/qwen36_offline_preferences.jsonl.gz \
   --expected-records 19157
 DATA_FILE=/tmp/qwen36_offline_preferences.jsonl.gz \
-  bash scripts/train_qwen36_offline.sh
+  bash scripts/train_qwen36_27b_offline.sh
 ```
 
 Preparation retains the exact attacked prompt and responses but drops
 auxiliary generator-only fields. It derives `clean_prompt` by one literal
 deletion, matching the benign-reference training path.
+
+## Llama online PAIR data workflow
+
+The raw Llama rows use `rejected_input` as the attack goal and do not carry a
+stable public ID. Prepare them with the opt-in online contract:
+
+```bash
+python scripts/prepare_preferences.py \
+  --input /path/to/llama31_raw_preferences.json \
+  --output /tmp/llama31_online_preferences.jsonl \
+  --expected-records 19157 \
+  --online-pair
+```
+
+This mode strips surrounding goal whitespace and maps it to `attack_goal`.
+When `id` is absent, it hashes a domain-separated canonical encoding of
+`prompt`, `chosen`, and `rejected`: each UTF-8 value is prefixed by its unsigned
+eight-byte big-endian byte length, and the public ID is `pair-` plus the first
+24 lowercase hexadecimal SHA-256 characters. Duplicate derived IDs fail the
+whole conversion. The default preparation mode is unchanged.
+
+## Exact DTap task selection
+
+`dtap_qwen36_non_vm_tasks.jsonl` is a selection manifest, not copied benchmark
+payload data. Its SHA-256 is
+`ca0f2fc5728491561e4645ed25390b6311fc9831ecb9b72660d5f513fd6d8098`.
+Every row identifies one Git-tracked task in DTap commit
+`e0323a521ba4ef88f8e14c1eccf68d0a3d19a458` with `domain`, `type`,
+`task_id`, `threat_model`, and `risk_category`. The release loader requires
+exactly 1,838 unique malicious/indirect rows, rejects macOS and Windows, and
+verifies both the raw-file checksum and ordered semantic checksum before
+sharding. See `docs/DTAP.md` for the external benchmark setup.

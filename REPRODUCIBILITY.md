@@ -1,5 +1,18 @@
 # Reproducibility notes
 
+## Released artifacts
+
+| Artifact | Hugging Face repository |
+| --- | --- |
+| Llama training dataset | [Sizhe-Chen/Llama-3.1-8B-Instruct-SecPO-trainset](https://huggingface.co/datasets/Sizhe-Chen/Llama-3.1-8B-Instruct-SecPO-trainset) |
+| Qwen training dataset | [Sizhe-Chen/Qwen3.6-27B-Instruct-SecPO-trainset](https://huggingface.co/datasets/Sizhe-Chen/Qwen3.6-27B-Instruct-SecPO-trainset) |
+| Llama SecPO model | [Sizhe-Chen/Llama-3.1-8B-Instruct-SecPO](https://huggingface.co/Sizhe-Chen/Llama-3.1-8B-Instruct-SecPO) |
+| Qwen SecPO model | [Sizhe-Chen/Qwen3.6-27B-Instruct-SecPO](https://huggingface.co/Sizhe-Chen/Qwen3.6-27B-Instruct-SecPO) |
+
+Use the immutable revisions and license terms recorded on the individual
+Hugging Face cards. These repositories provide the released artifacts; they
+do not change the external-runtime and exact-trajectory boundaries below.
+
 ## Main settings and implementation notes
 
 | Setting | Llama-3.1-8B-Instruct | Qwen3.6-27B |
@@ -21,6 +34,9 @@
 | LR schedule | Cosine | Linear |
 | Gradient clipping | Disabled | Norm 1.0 |
 | Release seed | 42 (see note) | 42 |
+| Data/sampler seed | 0 | 42 (release default) |
+| Drop incomplete microbatch | Yes | No |
+| Optimizer updates | 74 for the 19,157-row/eight-rank run | Dataset-derived |
 
 The shared DeepSpeed configuration intentionally leaves scheduler construction
 to Transformers so that each model JSON selects the schedule shown above.
@@ -82,6 +98,30 @@ It contains 19,157 records; the configured 512-token prompt filter removes 12
 and trains on 19,145. See `data/DATASET_CARD.md` for checksums, known
 auxiliary-field inconsistencies, and the required preparation commands.
 
+## Qwen merge and agent evaluation
+
+`scripts/merge_qwen36_27b_lora.py` converts a completed Qwen LoRA adapter into
+a standalone checkpoint for external harnesses that cannot load PEFT adapters
+directly. The clean merge validates the adapter delta and saved weight set,
+preserves multimodal tensors when present, and writes a path-sanitized
+`merge_manifest.json`. Model weights and merge outputs are never release
+artifacts.
+
+The Qwen AgentDojo, AgentDyn, and DTap integrations are pinned external
+workflows. AgentDyn records native-tool, thinking, and trusted-`user` /
+untrusted-`input` behavior in
+`configs/evaluate_agentdyn_qwen36_27b.json`. DTap freezes a thinking-off,
+1,838-task non-VM selection with 33 deterministic shards, a 262,144-token
+context, and a 32,768-token output cap. The historical DTap profile used a
+benign-reference checkpoint trained at learning rate `1.2e-4`, whereas the
+main Qwen configuration released here uses `1.6e-4`; the protocol code does
+not imply that those checkpoints are identical. The clean Qwen-Agent adapter
+and concrete external-DTap lifecycle/judge backend are included. Actual runs
+still require the pinned upstream benchmark data, task environments, evaluated
+checkpoint, and a separately operated model service.
+See `docs/AGENTDOJO.md`,
+`docs/AGENTDYN.md`, and `docs/DTAP.md` for the exact external boundaries.
+
 ## SecPO-only main results reported in the submission
 
 All values are percentages.
@@ -100,8 +140,6 @@ All values are percentages.
 | SEP Basic Adaptive ASR | 10.6 |
 | SEP Genetic Adaptive ASR | 12.3 |
 | SEP TAP Adaptive ASR | 12.2 |
-| SEP PISmith ASR | 7.0 |
-| AlpacaFarm GCG ASR | 5.8 |
 
 ### Qwen3.6-27B, offline non-thinking SecPO
 
@@ -119,18 +157,47 @@ All values are percentages.
 | SEP ASR | 1.4 |
 | SEP Genetic Adaptive ASR | 5.8 |
 | SEP TAP Adaptive ASR | 6.7 |
-| SEP PISmith ASR | 0.0 |
 
-Evaluation implementations and non-SecPO result columns are outside the
-requested release scope.
+The release includes clean static SEP, Basic Adaptive, Genetic/MAP-Elites,
+PAIR, Llama-derived shared TAP, witness-first unanimous-nine judging, exact
+reference-utility preflight, Qwen merge, paper-80 AgentDojo, AgentDyn, and DTap
+interfaces. Scientific runs still require externally installed victim,
+attacker, judge, agent-benchmark, model, dataset, and evaluator dependencies.
+The AlpacaEval2 and SEP comparator outputs remain external but are frozen by
+generator, row count, alignment, and SHA-256. Therefore the table records the
+submission results but is not a claim that external services can reproduce
+historical hosted-model behavior byte-for-byte.
 
 ## Reproduction boundary
 
 The supplied code, data validator, and configurations implement the
 benign-reference objective and main hyperparameters in a clean, shared Trainer
-wrapper. The original Llama executable used Torchtune, so this is not a
-bit-for-bit runtime reproduction. End-to-end reproduction additionally
-requires the concurrent adaptive-attack worker and generated corpus for the
-Llama experiment; those components and attacker credentials/checkpoints are
-not included. The exact Qwen offline preference corpus is included, but model
-weights and the original cluster/runtime environment remain external.
+wrapper. The original Llama executable used Torchtune, so the framework runtime
+is not bit-for-bit identical. The main current-policy PAIR behavior is now
+included: eight streams, 30 rounds, current LoRA refresh, canonical
+32-examples-per-rank mode, final victim generation, and unanimous nine-vote
+confirmation. The Hugging Face trainer publishes a PEFT checkpoint after every
+optimizer step. It uses data seed 0 and a 74-update cap for the full archived
+dataset/topology, preventing a framework-generated partial 75th update. This
+does not prove an identical Torchtune/Hugging Face index schedule.
+
+The connected blocking collator waits for a two-example PAIR request before
+the defender can continue, so one 30-round search normally sees a fixed policy.
+The archived asynchronous 32-example/rank producer could observe an optimizer
+update mid-search. The separate exact-batch worker enforces group size but needs
+an external accumulation-group producer/pipeline to recover that concurrency;
+the producer is not included. This is a trajectory difference, not merely a
+batching difference. See
+`docs/LLAMA31_CURRENT_POLICY_PAIR.md` for this explicit boundary. Model weights,
+historical hosted-provider revisions, and the original cluster environment
+remain external.
+
+The adaptive search modules are clean source-backed behavioral refactors with
+an explicit 800-victim-query cap for Genetic and TAP. The Qwen path reuses the
+working Llama TAP orchestration rather than the stale Qwen fork; Genetic is
+retained. Dense scores rank candidates, while witness-first unanimous 3-by-3
+judging alone defines success. They do not reproduce proprietary provider
+clients, asynchronous scheduling, or unrecorded random streams byte-for-byte.
+Every final result must record the backend, prompts, immutable model/software
+revisions, decoding parameters, nine-judge configuration, dataset checksum,
+seed, query budget, and configuration fingerprint.

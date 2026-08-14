@@ -1,0 +1,27 @@
+{
+  "schema_version": "secpo-llama31-current-policy-pair-v1",
+  "n_streams": 8,
+  "num_attack_steps": 30,
+  "keep_last_n": 3,
+  "num_attacker_ranks": 8,
+  "defender_total_batch_size": 256,
+  "per_rank_attack_batch_size": 32,
+  "attack_temperature": 1.0,
+  "attack_max_tokens": 2048,
+  "target_max_tokens": 1536,
+  "final_target_max_tokens": 2048,
+  "attacker_identifier": "gemini-3.1-flash-lite-preview",
+  "iteration_judge_identifier": "gemini-2.5-flash-lite",
+  "iteration_judge_temperature": 0.0,
+  "final_judge_identifiers": [
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3-flash-preview-thinking-4096",
+    "gpt-5-high-reasoning"
+  ],
+  "final_trials_per_judge": 3,
+  "final_judge_temperature": 0.7,
+  "final_judge_max_tokens": 1024,
+  "seed": 0,
+  "strict_per_rank_batch": true,
+  "initial_injection_templates": "built_in_main_run_pool"
+}

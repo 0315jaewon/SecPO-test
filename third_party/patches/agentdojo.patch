@@ -1,0 +1,32 @@
+diff --git a/src/agentdojo/benchmark.py b/src/agentdojo/benchmark.py
+index 57d426fd2..71b29417d 100644
+--- a/src/agentdojo/benchmark.py
++++ b/src/agentdojo/benchmark.py
+@@ -93,7 +93,12 @@ def run_task_with_injection_tasks(
+                     injection_task=injection_task.ID,
+                     logdir=logdir,
+                 )
+-            except (ValidationError, FileNotFoundError):
++            except (
++                json.JSONDecodeError,
++                UnicodeDecodeError,
++                ValidationError,
++                FileNotFoundError,
++            ):
+                 task_result = None
+         else:
+             task_result = None
+@@ -256,7 +261,12 @@ def run_task_without_injection_tasks(
+                 injection_task="none",
+                 logdir=logdir,
+             )
+-        except (ValidationError, FileNotFoundError):
++        except (
++            json.JSONDecodeError,
++            UnicodeDecodeError,
++            ValidationError,
++            FileNotFoundError,
++        ):
+             task_result = None
+     else:
+         task_result = None

@@ -1,0 +1,35 @@
+{
+  "schema_version": "secpo-reference-utility-v1",
+  "suite": "sep",
+  "expected_rows": 9160,
+  "identity_keys": [
+    "instruction",
+    "instruction_only",
+    "input",
+    "injection"
+  ],
+  "reference": {
+    "expected_filename": "SEP_dataset_test_Meta-Llama-3-8B-Instruct copy.json",
+    "sha256": "6defcfdb3ac9da4a03eff21403a0ac58ce52c0c1dc45c23fc48b17a2bba0808c",
+    "generator": "meta-llama/Meta-Llama-3-8B-Instruct",
+    "redistribution": "external"
+  },
+  "metric": {
+    "primary": "win_rate",
+    "fn_metric": "get_winrate",
+    "sort_by": "win_rate",
+    "metric_kwargs": null
+  },
+  "alpaca_eval": {
+    "annotators_config_env": "SECPO_UTILITY_ANNOTATORS_CONFIG",
+    "annotation_kwargs": {
+      "is_ordered": true
+    },
+    "input_keys": [
+      "instruction",
+      "instruction_only",
+      "input",
+      "injection"
+    ]
+  }
+}

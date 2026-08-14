@@ -1,0 +1,31 @@
+{
+  "schema_version": "secpo-reference-utility-v1",
+  "suite": "alpacaeval2",
+  "expected_rows": 805,
+  "identity_keys": [
+    "instruction"
+  ],
+  "reference": {
+    "expected_filename": "alpaca_eval2_gpt-4o-2024-05-13_official_reference_outputs.json",
+    "sha256": "653c131d58e8d5802203c85e80ca3fb4b378f22e2a0280ad5cd910ff0bee9535",
+    "generator": "gpt-4o-2024-05-13",
+    "redistribution": "external"
+  },
+  "metric": {
+    "primary": "length_controlled_winrate",
+    "fn_metric": null,
+    "sort_by": null,
+    "metric_kwargs": {
+      "save_weights_dir": null
+    }
+  },
+  "alpaca_eval": {
+    "annotators_config_env": "SECPO_UTILITY_ANNOTATORS_CONFIG",
+    "annotation_kwargs": {
+      "is_ordered": true
+    },
+    "input_keys": [
+      "instruction"
+    ]
+  }
+}

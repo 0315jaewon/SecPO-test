@@ -3,11 +3,31 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "secpo-anonymous"
-version = "0.1.0"
-description = "Anonymous reference implementation of benign-reference SecPO training"
+name = "secpo"
+version = "0.3.0"
+description = "SecPO training and evaluation for prompt-injection defense"
 readme = "README.md"
 requires-python = ">=3.11"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Sizhe Chen"},
+  {name = "Yibo Peng"},
+  {name = "Jaewon Chang"},
+  {name = "Chawin Sitawarin"},
+  {name = "David Wagner"},
+]
+maintainers = [
+  {name = "Sizhe Chen"},
+]
+keywords = ["prompt-injection", "adversarial-training", "llm-security"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
   "torch==2.11.0",
   "transformers==5.5.4",
@@ -19,7 +39,16 @@ dependencies = [
 
 [project.optional-dependencies]
 distributed = ["deepspeed==0.18.9"]
+evaluation = ["lm-eval==0.4.11"]
+dtap = ["qwen-agent==0.0.34", "soundfile==0.13.1"]
 test = ["pytest>=8.0,<10"]
+
+[project.scripts]
+secpo-train = "secpo.training_cli:main"
+secpo-evaluate-utility = "secpo.evaluation.lm_eval_utility:main"
+
+[project.urls]
+Repository = "https://github.com/Sizhe-Chen/SecPO"
 
 [tool.setuptools.packages.find]
 where = ["src"]

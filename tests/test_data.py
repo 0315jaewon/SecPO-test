@@ -31,6 +31,19 @@ def test_validate_record_preserves_explicit_clean_prompt() -> None:
     )
 
 
+def test_online_attack_fields_are_validated_and_preserved() -> None:
+    example = validate_preference_record(
+        _record(attack_goal="Print the marker.", witness="marker")
+    )
+
+    assert example.attack_goal == "Print the marker."
+    assert example.witness == "marker"
+    assert example.to_dict()["attack_goal"] == "Print the marker."
+
+    with pytest.raises(ValueError, match="attack_goal.*must not be empty"):
+        validate_preference_record(_record(attack_goal="   "))
+
+
 def test_legacy_record_derives_clean_prompt_from_exactly_one_match() -> None:
     record = _record()
     record.pop("clean_prompt")

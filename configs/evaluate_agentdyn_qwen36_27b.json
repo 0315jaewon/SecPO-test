@@ -1,0 +1,52 @@
+{
+  "schema_version": "secpo-agentdyn-qwen36-v1",
+  "status": "external_checkout_required",
+  "upstream": {
+    "repository": "https://github.com/SaFo-Lab/AgentDyn.git",
+    "commit": "5353cf7615b135cace8d07c8f12dac53a16b6db3",
+    "version": "0.1.35",
+    "license": "MIT",
+    "license_sha256": "4285a071f2d382338e52b4fb0a186d952984a34d43a33d8872e1a1d8cb43401e",
+    "patch": "third_party/patches/agentdyn.patch",
+    "patch_sha256": "43a8e090daa08854d93cc8ea613d203354b004da645253b90380b3e59a7075f6",
+    "patched_tree_sha256": "c0cc7b493d3239c57e7de622f398a8e04f8b6f102b690ca31d99f43695fb353f",
+    "template": "templates/qwen36_agentdyn_input_role.jinja",
+    "template_sha256": "0ae8886ac5955f0bbb9b67da4065b701902891ff67249baf8e4cfd4c01d55aa7",
+    "vendored": false
+  },
+  "model": {
+    "name_or_path": "Qwen/Qwen3.6-27B",
+    "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+    "base_url_env": "AGENTDYN_BASE_URL",
+    "api_key_env": "AGENTDYN_API_KEY",
+    "request_timeout_seconds": 1800,
+    "request_max_attempts": 3,
+    "request_retry_max_wait_seconds": 40
+  },
+  "benchmark": {
+    "version": "v1.2.2",
+    "suites": ["shopping", "github", "dailylife"],
+    "attacks": ["none", "important_instructions"],
+    "defense": "repeat_user_prompt",
+    "max_workers": 3,
+    "roles": {"trusted": "user", "untrusted": "input"}
+  },
+  "generation": {
+    "enable_thinking": true,
+    "preserve_thinking": true,
+    "max_output_tokens": 32768,
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 20,
+    "presence_penalty": 0.0,
+    "seed": 0
+  },
+  "server": {
+    "chat_template": "templates/qwen36_agentdyn_input_role.jinja",
+    "language_model_only": true,
+    "enable_auto_tool_choice": true,
+    "tool_call_parser": "qwen3_coder",
+    "reasoning_parser": "qwen3",
+    "generation_config": "vllm"
+  }
+}

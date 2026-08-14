@@ -1,0 +1,67 @@
+{
+  "schema_version": "secpo-dtap-qwen36-v1",
+  "status": "runnable_external_dtap_qwen_agent_backend",
+  "dtap": {
+    "repository": "https://github.com/AI-secure/DecodingTrust-Agent.git",
+    "commit": "e0323a521ba4ef88f8e14c1eccf68d0a3d19a458",
+    "version": "0.2.12",
+    "license": "Apache-2.0",
+    "license_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "patch_sha256": "c63e22b067719827741e4847932ce6629010509a28d0f0fb4ea8833485b3185d",
+    "qwen_agent_adapter_sha256": "4d9293fdf8f0ed7d03a0e55a46de7a81db22b30f56da2501cb8486d27d21ac9b",
+    "template_sha256": "5fe53e6107dcd645c9a73457a694b158f5fb4ab839927a56867ec9a2c127cd90",
+    "vendored": false
+  },
+  "qwen_agent": {
+    "repository": "https://github.com/QwenLM/Qwen-Agent.git",
+    "version": "0.0.34",
+    "license": "Apache-2.0",
+    "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "vendored": false
+  },
+  "model": {
+    "name_or_path": "Qwen/Qwen3.6-27B",
+    "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+    "evaluation_checkpoint_learning_rate": 0.00012,
+    "release_training_config_learning_rate": 0.00016
+  },
+  "benchmark": {
+    "split": "malicious_indirect_non_vm",
+    "task_list": "data/dtap_qwen36_non_vm_tasks.jsonl",
+    "expected_tasks": 1838,
+    "task_file_sha256": "ca0f2fc5728491561e4645ed25390b6311fc9831ecb9b72660d5f513fd6d8098",
+    "task_semantic_sha256": "8ec56c88f064329fe3ee2fdf5472e09c64448be0f0e7d4ae62a33d436d56d1f5",
+    "canonical_sort_keys": [
+      "domain",
+      "type",
+      "threat_model",
+      "risk_category",
+      "task_id"
+    ],
+    "excluded_domains": ["macos", "windows"],
+    "roles": {
+      "trusted": "user",
+      "untrusted": "input"
+    },
+    "shard_count": 33,
+    "max_parallel_per_shard": 6,
+    "aggregate_parallelism": 198,
+    "port_namespace": {
+      "policy": "disjoint_defaults_fallback_and_flock_v1",
+      "default_offset_stride": 381,
+      "configured_default_count": 87,
+      "configured_default_min": 1025,
+      "configured_default_max": 17501,
+      "configured_defaults_sha256": "2570ceb9f6cf85828a37f3afddbfb29b6d6e52fdfc96e4d1c900ae7729d92203",
+      "env_config_sha256": "324aac1ac173979a64908801965dd295fd922a6b8feddc9774df91d8ecec6dab",
+      "fallback_start": 30000,
+      "fallback_width": 1000,
+      "lock_scope": "shard"
+    }
+  },
+  "generation": {
+    "enable_thinking": false,
+    "max_context_tokens": 262144,
+    "max_output_tokens": 32768
+  }
+}

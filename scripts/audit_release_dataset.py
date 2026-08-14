@@ -16,7 +16,11 @@ from typing import Any, NoReturn, TextIO
 PREPARED_REQUIRED_FIELDS = frozenset(
     {"prompt", "clean_prompt", "chosen", "rejected"}
 )
-PREPARED_ALLOWED_FIELDS = PREPARED_REQUIRED_FIELDS | {"id"}
+PREPARED_ALLOWED_FIELDS = PREPARED_REQUIRED_FIELDS | {
+    "id",
+    "attack_goal",
+    "witness",
+}
 RAW_REQUIRED_FIELDS = frozenset(
     {
         "prompt",
@@ -44,7 +48,12 @@ SECRET_LIKE = re.compile(
     r"(?<![A-Za-z0-9_])(?:"
     r"(?:hf|ghp|glpat)_[A-Za-z0-9_-]{16,}"
     r"|sk[-_][A-Za-z0-9_-]{16,}"
+    r"|nvapi-[A-Za-z0-9_-]{16,}"
+    r"|github_pat_[A-Za-z0-9_]{20,}"
+    r"|AIza[A-Za-z0-9_-]{35}"
+    r"|xox[baprs]-[A-Za-z0-9-]{10,}"
     r"|AKIA[0-9A-Z]{16}"
+    r"|LLM\|[0-9]{8,}\|[A-Za-z0-9_-]{16,}"
     r")"
 )
 PRIVATE_KEY = re.compile(
@@ -296,6 +305,9 @@ def main() -> int:
                 if record_id in ids:
                     fail(f"record {line_number}: duplicate record id")
                 ids.add(record_id)
+            for optional_field in ("attack_goal", "witness"):
+                if optional_field in record:
+                    require_text(record, optional_field, line_number)
         else:
             injection = require_text(
                 record,

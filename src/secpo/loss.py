@@ -13,8 +13,8 @@ import math
 import torch
 import torch.nn.functional as F
 
+from .constants import IGNORE_INDEX
 
-IGNORE_INDEX = -100
 
 
 @dataclass(frozen=True)

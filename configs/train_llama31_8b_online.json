@@ -1,7 +1,8 @@
 {
   "model_name_or_path": "meta-llama/Llama-3.1-8B-Instruct",
+  "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
   "data_file": "data/example_preferences.jsonl",
-  "output_dir": "outputs/llama31-online",
+  "output_dir": "outputs/llama31_8b_online",
   "beta": 0.1,
   "max_length": 2048,
   "learning_rate": 0.00016,
@@ -25,12 +26,20 @@
     "down_proj"
   ],
   "logging_steps": 1,
-  "save_strategy": "epoch",
+  "save_strategy": "steps",
+  "save_steps": 1,
   "report_to": "none",
   "seed": 42,
+  "data_seed": 0,
+  "dataloader_drop_last": true,
+  "max_steps": 74,
   "torch_dtype": "bfloat16",
   "optim": "adamw_torch_fused",
   "ddp_find_unused_parameters": false,
   "append_eos": true,
-  "trust_remote_code": false
+  "trust_remote_code": false,
+  "online_exchange_dir": "runtime/online_exchange",
+  "online_timeout_seconds": 1800.0,
+  "online_poll_seconds": 1.0,
+  "online_retain_files": false
 }

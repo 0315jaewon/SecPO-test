@@ -1,0 +1,31 @@
+{
+  "model_name_or_path": "Qwen/Qwen3.6-27B",
+  "model_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+  "tasks": [
+    {
+      "task": "mmlu_pro",
+      "num_fewshot": 5,
+      "metric": "exact_match,custom-extract"
+    },
+    {
+      "task": "gpqa_diamond_cot_zeroshot",
+      "num_fewshot": 0,
+      "metric": "exact_match,flexible-extract"
+    },
+    {
+      "task": "gsm8k_cot",
+      "num_fewshot": 8,
+      "metric": "exact_match,flexible-extract"
+    },
+    {
+      "task": "minerva_math",
+      "num_fewshot": 4,
+      "metric": "math_verify,none"
+    }
+  ],
+  "batch_size": "auto",
+  "dtype": "bfloat16",
+  "seed": 42,
+  "trust_remote_code": true,
+  "apply_chat_template": true
+}
