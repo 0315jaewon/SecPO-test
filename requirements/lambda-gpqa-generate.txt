@@ -1,0 +1,7 @@
+# Core versions observed on the original Python 3.10 / H100 Lambda instance.
+# Use a dedicated virtualenv, separate from the scoring environment.
+vllm==0.29.0
+transformers==5.10.4
+torch==2.13.0
+tokenizers==0.22.2
+ninja==1.13.2

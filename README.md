@@ -1,5 +1,12 @@
 # SecPO: training and evaluation for prompt-injection defense
 
+## Lambda GPQA reproduction (`lambda-test` branch)
+
+For the Qwen3.8-27B base-model GPQA Diamond run on Lambda/vLLM, start with
+[the Lambda GPQA guide](docs/LAMBDA_GPQA.md). It includes the exact evaluation
+runner, environment pins, and generation/scoring commands. Frozen benchmark
+inputs and scoring references are distributed privately, not committed here.
+
 This is the public, identity-bearing implementation of the main Security
 Preference Optimization (SecPO) pipeline for text prompt-injection defense.
 The repository is maintained by [Sizhe Chen](https://github.com/Sizhe-Chen)

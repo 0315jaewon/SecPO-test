@@ -1,0 +1,10 @@
+# Core versions from the original Python 3.11 local scoring environment.
+# Do not install into the vLLM environment: Transformers versions differ.
+lm-eval==0.4.11
+transformers==4.57.1
+tokenizers==0.22.1
+torch==2.8.0
+datasets==3.5.0
+numpy==1.26.4
+math-verify==0.8.0
+pytest==8.3.4
