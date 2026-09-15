@@ -95,8 +95,8 @@ files and tokenizer files required by the scorer.
 ## Clone and unpack
 
 ```bash
-git clone --branch lambda-test --single-branch https://github.com/Sizhe-Chen/SecPO.git
-cd SecPO
+git clone --branch lambda-test --single-branch https://github.com/0315jaewon/SecPO-test.git
+cd SecPO-test
 mkdir -p data
 tar -xzf /path/to/lambda_gpqa_reproduction_inputs.tar.gz -C data
 (cd data/lambda_gpqa && sha256sum --check SHA256SUMS)
