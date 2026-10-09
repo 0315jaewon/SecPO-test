@@ -71,8 +71,9 @@ It is **not an AgentDojo benchmark evaluation**, has no real victim API calls,
 and produces no ASR. It checks both models in both roles before choosing a
 model pairing. It keeps the released decoding defaults but deliberately uses
 one worker and disables HTTP/critic-format retries to bound this smoke test to
-at most four attempted API calls, each capped at 4096 output tokens. No provider
-or model substitution is requested. The returned model must match the request,
+at most four attempted API calls, each capped at 4096 output tokens by default.
+No alternative model is configured; OpenRouter's default provider routing is
+retained and the selected provider is recorded. The returned model must match the request,
 and incomplete (`finish_reason != stop`) completions are saved but rejected.
 
 From this worktree, show the plan without reading credentials or making calls:
@@ -95,6 +96,43 @@ PYTHONPATH=src /home/jaewonc/SecPO/runtime/eval_envs/agentdojo/bin/python \
 request/response receipts without auth headers. `results.json` contains parsed
 feedback, proposed injections, checks, token counts, and provider-reported cost.
 Failed HTTP calls can incur charges not captured by returned usage receipts.
+
+The first live probe completed all four calls, costing **$0.00424114** in
+reported usage. GLM passed both roles. DeepSeek's critic returned valid feedback,
+but its attacker used all 4096 completion tokens for reasoning and returned no
+final JSON (`finish_reason=length`, GMICloud provider). This is an output-budget
+failure, not a key/endpoint authentication failure. Receipts are under the
+output directory in the command above. A separate, explicit follow-up tests
+DeepSeek with 8192 output tokens while preserving high reasoning and the same
+released prompts:
+
+```bash
+PYTHONPATH=src /home/jaewonc/SecPO/runtime/eval_envs/agentdojo/bin/python \
+  scripts/probe_agentdojo_openrouter.py --live \
+  --model deepseek/deepseek-v4.1-flash --max-output-tokens 8192 \
+  --key-file /home/jaewonc/SecPO/secpo_openrouter.env \
+  --output-dir /data2/jaewonc/secpo_evals/agentdojo_openrouter_smoke_20261009_deepseek8k
+```
+
+This follow-up is bounded to **two** attempted API calls. A fresh critic response
+is used for its attacker feedback; it is not a deterministic replay of the
+first probe's prompt. A larger cap is an explicitly changed test condition,
+not a modification of the released defaults.
+
+The 8192-token follow-up **passed both DeepSeek roles**, costing **$0.0014374036**.
+Its attacker returned complete JSON after 118 seconds, with 6110 reported
+completion tokens (Decart provider). Combined across both probes: **six API
+calls, $0.0056785436** in reported charges. These single examples demonstrate
+connectivity and interface compatibility, not reliability across all tasks.
+The retry used a different provider and fresh critic feedback, so it is not a
+controlled comparison of token caps alone. Raw usage is preserved as returned;
+the Decart receipt's reasoning-token subcount exceeds its completion-token
+total, so those counters should not be treated as independently validated.
+
+| Model | Critic | Attacker / refinement |
+|---|---|---|
+| `z-ai/glm-5.3-flash` | Passed at 4096 | Passed at 4096 |
+| `deepseek/deepseek-v4.1-flash` | Passed at 4096 and 8192 | Truncated at 4096; passed at 8192 |
 
 ## Upstream test baseline
 
@@ -122,6 +160,9 @@ PYTHONPATH=src python -m pytest -q \
   tests/test_agentdojo_openrouter.py
 ```
 
-The narrower integration/research-search/transport selection initially gave
-**43 passed, 2 skipped**. A successful component probe does not establish attack
+The full selection after adding integration tests gives **58 passed, 2 failed,
+2 skipped**, with the same two inherited failures. Its JUnit report is saved at
+`outputs/agentdojo-openrouter-offline-tests.xml`. The narrower
+integration/research-search/transport selection gives **46 passed, 2 skipped**.
+A successful component probe does not establish attack
 effectiveness, end-to-end victim compatibility, or paper-reproduction parity.

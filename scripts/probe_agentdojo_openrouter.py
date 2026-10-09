@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 
 from secpo.attacks.agentdojo_genetic import AgentDojoAttackRequest
@@ -31,8 +32,9 @@ CONTEXT = {
 }
 
 
-def exercise(model, key, transport):
-    backend = make_backend(key, attacker_model=model, judge_model=model, transport=transport)
+def exercise(model, key, transport, max_tokens=4096):
+    backend = make_backend(key, attacker_model=model, judge_model=model,
+                           transport=transport, max_tokens=max_tokens)
     backend.set_task_context(CONTEXT)
     attempt = {**CONTEXT, "trigger": SEED, "response": TRACE, "trajectory": TRACE,
                "agentdojo_attack_success": False, "user_task_utility": True}
@@ -41,6 +43,10 @@ def exercise(model, key, transport):
     raw = _json_object(last_response["choices"][0]["message"]["content"]) or {}
     if not all(field in raw for field in ("score", "explanation", "suggestion")):
         raise ValueError("Critic JSON did not contain the expected fields")
+    if (isinstance(raw["score"], bool) or not math.isfinite(float(raw["score"]))
+            or not all(isinstance(raw[field], str) and raw[field].strip()
+                       for field in ("explanation", "suggestion"))):
+        raise ValueError("Critic returned invalid score or feedback")
     request = AgentDojoAttackRequest(
         algorithm="agentdojo_genetic", goal=GOAL, step=2, count=1, parents=(SEED,),
         history=(EvaluationSummary(SEED, TRACE, feedback["score"], 1),), context=CONTEXT)
@@ -57,9 +63,14 @@ def main(argv=None):
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--key-file", type=Path)
     parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--model", action="append", choices=MODELS,
+                        help="Repeat to select models; default is both")
+    parser.add_argument("--max-output-tokens", type=int, choices=(4096, 8192), default=4096)
     args = parser.parse_args(argv)
-    plan = {"purpose": "component compatibility, not benchmark ASR", "models": MODELS,
-            "maximum_requests": 4, "maximum_output_tokens_per_request": 4096,
+    selected = tuple(dict.fromkeys(args.model or MODELS))
+    plan = {"purpose": "component compatibility, not benchmark ASR", "models": selected,
+            "maximum_requests": 2 * len(selected),
+            "maximum_output_tokens_per_request": args.max_output_tokens,
             "victim": "synthetic recorded trace; no victim API calls",
             "checks": ["critic JSON and score", "mutation JSON using critic feedback"]}
     if not args.live:
@@ -76,14 +87,15 @@ def main(argv=None):
             "src/secpo/evaluation/agentdojo_openrouter.py",
             "scripts/probe_agentdojo_openrouter.py")})
     write_json(args.output_dir / "manifest.json", plan)
-    transport = RecordedTransport(args.output_dir / "http_cache")
+    transport = RecordedTransport(args.output_dir / "http_cache", max_requests=2*len(selected),
+                                  max_tokens=args.max_output_tokens)
     checks = []
-    for model in MODELS:
+    for model in selected:
         try:
-            checks.append(exercise(model, key, transport))
+            checks.append(exercise(model, key, transport, args.max_output_tokens))
         except Exception as exc:
             checks.append({"model": model, "status": "failed", "error_type": type(exc).__name__})
-        result = {"at": now(), "status": "complete" if len(checks) == len(MODELS) else "running",
+        result = {"at": now(), "status": "complete" if len(checks) == len(selected) else "running",
                   "checks": checks, "usage": transport.summary(), "benchmark_asr": None}
         write_json(args.output_dir / "results.json", result)
     print(json.dumps({"checks": [{k: item[k] for k in ("model", "status")} for item in checks],

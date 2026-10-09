@@ -1,11 +1,10 @@
-from dataclasses import replace
 import json
 
 import pytest
 
-from secpo.evaluation.agentdojo_models import AgentDojoProviderError
+from secpo.evaluation.agentdojo_models import AgentDojoModelBackend
 from secpo.evaluation.agentdojo_openrouter import (
-    BASE_URL, ENDPOINT, MODELS, RecordedTransport, load_key, make_backend,
+    BASE_URL, ENDPOINT, MODELS, RecordedTransport, load_key,
 )
 from secpo.attacks.agentdojo_genetic import AgentDojoGeneticConfig
 from secpo.evaluation.agentdojo_qwen36 import AgentDojoEpisode, paper_genetic_tasks, run_genetic
@@ -32,6 +31,19 @@ def test_key_rejects_non_openrouter_host(tmp_path):
     path.write_text("OPENROUTER_API_KEY=fixture\nOPENROUTER_BASE_URL=https://example.invalid/v1\n")
     with pytest.raises(ValueError, match="only be sent to OpenRouter"):
         load_key(path)
+
+
+def test_original_environment_factory_accepts_openrouter_models(monkeypatch):
+    for role, model in zip(("ATTACKER", "JUDGE"), MODELS):
+        monkeypatch.setenv(f"AGENTDOJO_{role}_MODEL", model)
+        monkeypatch.setenv(f"AGENTDOJO_{role}_BASE_URL", BASE_URL)
+        monkeypatch.setenv(f"AGENTDOJO_{role}_API_KEY", "fixture-key")
+        monkeypatch.setenv(f"AGENTDOJO_{role}_MAX_TOKENS", "4096")
+    backend = AgentDojoModelBackend.from_environment()
+    assert backend.attacker.config.model == MODELS[0]
+    assert backend.judge.config.model == MODELS[1]
+    assert backend.attacker.config.endpoint() == ENDPOINT
+    assert backend.judge.config.endpoint() == ENDPOINT
 
 
 @pytest.mark.parametrize("model", MODELS)
@@ -97,6 +109,22 @@ def test_default_plan_does_not_read_credentials(monkeypatch, capsys):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     assert main([]) == 0
     assert json.loads(capsys.readouterr().out)["maximum_requests"] == 4
+
+
+def test_single_model_larger_cap_is_explicit_and_bounded(capsys):
+    assert main(["--model", MODELS[1], "--max-output-tokens", "8192"]) == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["maximum_requests"] == 2
+    assert plan["maximum_output_tokens_per_request"] == 8192
+    assert plan["models"] == [MODELS[1]]
+
+
+def test_invalid_critic_score_cannot_pass_probe(tmp_path):
+    transport = RecordedTransport(tmp_path, post=lambda url, payload, headers, timeout:
+        response(payload, '{"score":true,"explanation":"fixture","suggestion":"fixture"}'))
+    with pytest.raises(ValueError, match="invalid score"):
+        exercise(MODELS[0], "fixture-key", transport)
+    assert transport.requests == 1
 
 
 def test_exact_success_finishes_seed_batch_then_replays():
