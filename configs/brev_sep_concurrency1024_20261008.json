@@ -1,0 +1,21 @@
+{
+  "execution_id": "sep_concurrency1024_20261008_tunnels4",
+  "run_id": "qwen38_brev_base_full_20261003_ready",
+  "remote_root": "/data/jaewonc/secpo_brev_base_20261003",
+  "allowed_gpu_ids": [0, 2, 3, 4],
+  "authorization": "User requested stopping the concurrency-8 run and trying batch/concurrency 1024 on the four assigned GPUs",
+  "generation_concurrency": 1024,
+  "judge_concurrency": 8,
+  "max_num_seqs_per_gpu": 256,
+  "max_num_batched_tokens_per_gpu": 8192,
+  "capacity_probe_stages": [64, 256, 1024],
+  "capacity_probe_max_tokens": 16,
+  "ssh_tunnels_per_replica": true,
+  "max_transport_attempts": 3,
+  "replicas": {
+    "oct08_b1024_0": {"benchmark": "sep_static", "gpu_id": 0, "gpu_uuid": "GPU-2413337d-7bd1-9117-bcaa-53e4c5acc42d", "remote_port": 29740, "local_port": 19740},
+    "oct08_b1024_2": {"benchmark": "sep_static", "gpu_id": 2, "gpu_uuid": "GPU-a73df9b7-2570-c960-2245-03a498c079e6", "remote_port": 29741, "local_port": 19741},
+    "oct08_b1024_3": {"benchmark": "sep_static", "gpu_id": 3, "gpu_uuid": "GPU-2f1f0182-2cfc-e05a-6b13-339d8381edef", "remote_port": 29742, "local_port": 19742},
+    "oct08_b1024_4": {"benchmark": "sep_static", "gpu_id": 4, "gpu_uuid": "GPU-2d5e56fe-0541-208c-937e-3dda8bc181c6", "remote_port": 29743, "local_port": 19743}
+  }
+}

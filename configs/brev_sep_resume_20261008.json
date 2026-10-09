@@ -1,0 +1,14 @@
+{
+  "execution_id": "resume_sep_20261008",
+  "run_id": "qwen38_brev_base_full_20261003_ready",
+  "remote_root": "/data/jaewonc/secpo_brev_base_20261003",
+  "allowed_gpu_ids": [0, 2, 3, 4],
+  "authorization": "Resume SEP on available GPUs; four available GPUs authorized on 2026-10-04 and availability rechecked on 2026-10-08",
+  "max_transport_attempts": 3,
+  "replicas": {
+    "oct08_sep_0": {"benchmark": "sep_static", "gpu_id": 0, "gpu_uuid": "GPU-2413337d-7bd1-9117-bcaa-53e4c5acc42d", "remote_port": 29640, "local_port": 19640},
+    "oct08_sep_2": {"benchmark": "sep_static", "gpu_id": 2, "gpu_uuid": "GPU-a73df9b7-2570-c960-2245-03a498c079e6", "remote_port": 29641, "local_port": 19641},
+    "oct08_sep_3": {"benchmark": "sep_static", "gpu_id": 3, "gpu_uuid": "GPU-2f1f0182-2cfc-e05a-6b13-339d8381edef", "remote_port": 29642, "local_port": 19642},
+    "oct08_sep_4": {"benchmark": "sep_static", "gpu_id": 4, "gpu_uuid": "GPU-2d5e56fe-0541-208c-937e-3dda8bc181c6", "remote_port": 29643, "local_port": 19643}
+  }
+}

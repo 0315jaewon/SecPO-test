@@ -1,0 +1,18 @@
+{
+  "run_id": "qwen38_brev_base_full_20261003_ready",
+  "remote_root": "/data/jaewonc/secpo_brev_base_20261003",
+  "model": "Qwen/Qwen3.8-27B",
+  "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "allowed_gpu_ids": [4, 5, 6, 7],
+  "jobs": {
+    "sep_static": {"gpu_id": 7, "gpu_uuid": "GPU-b9e53816-47fa-7cba-f69d-0ae1358d3396", "remote_port": 29440, "local_port": 19440, "concurrency": 8},
+    "mmlu_pro": {"gpu_id": 5, "gpu_uuid": "GPU-94a1455d-46b3-8dff-7e36-4b31ba921df3", "remote_port": 29441, "local_port": 19441, "concurrency": 12},
+    "minerva_math": {"gpu_id": 6, "gpu_uuid": "GPU-5bd42190-5088-780c-8ff5-6e20768003e6", "remote_port": 29442, "local_port": 19442, "concurrency": 12}
+  },
+  "inference": {
+    "variant": "base", "backend": "vllm-0.29.0", "served_model": "secpo-suite-base",
+    "checkpoint": "base:Qwen/Qwen3.8-27B", "base_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "max_model_len": 65536, "weight_dtype": "bfloat16",
+    "sampling": {"temperature": 0.7, "top_p": 0.8, "top_k": 20, "min_p": 0.0, "presence_penalty": 1.5, "repetition_penalty": 1.0, "frequency_penalty": 0.0}
+  }
+}

@@ -42,9 +42,11 @@ distributed = ["deepspeed==0.18.9"]
 evaluation = ["lm-eval==0.4.11"]
 dtap = ["qwen-agent==0.0.34", "soundfile==0.13.1"]
 test = ["pytest>=8.0,<10"]
+tinker = ["tinker==0.27.0"]
 
 [project.scripts]
 secpo-train = "secpo.training_cli:main"
+secpo-train-tinker = "secpo.tinker.cli:main"
 secpo-evaluate-utility = "secpo.evaluation.lm_eval_utility:main"
 
 [project.urls]

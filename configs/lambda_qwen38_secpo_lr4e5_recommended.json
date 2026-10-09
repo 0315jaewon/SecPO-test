@@ -1,0 +1,22 @@
+{
+  "variant": "secpo_lr4e5",
+  "backend": "vllm-0.29.0",
+  "endpoint": "http://127.0.0.1:18080/v1",
+  "served_model": "secpo-suite-secpo_lr4e5",
+  "checkpoint": "tinker://1dc6a174-d120-5ddc-884e-257ff14c7210:train:0/sampler_weights/secpo-final-sampler",
+  "base_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "max_model_len": 65536,
+  "weight_dtype": "bfloat16",
+  "sampling": {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 20,
+    "min_p": 0,
+    "presence_penalty": 1.5,
+    "repetition_penalty": 1,
+    "frequency_penalty": 0
+  },
+  "adapter_sha256": "d6ab25e93e775ab2139792a35dc8ca4cd3e49449b800dc7df9b63369176df937",
+  "merge": "official-tinker-cookbook-shard",
+  "cookbook_commit": "dfe4d77e8e8c7df7e9cd9539220b54a01d1eaa40"
+}

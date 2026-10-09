@@ -1,0 +1,13 @@
+{
+  "execution_id": "resume_four_gpu_20261004",
+  "run_id": "qwen38_brev_base_full_20261003_ready",
+  "remote_root": "/data/jaewonc/secpo_brev_base_20261003",
+  "allowed_gpu_ids": [1, 2, 5, 6],
+  "authorization": "2026-10-04: user permits four currently available GPUs, not restricted to IDs 4-7",
+  "replicas": {
+    "resume_sep_a": {"benchmark": "sep_static", "gpu_id": 1, "gpu_uuid": "GPU-c1bf0056-0cfc-5bc3-57e7-359fa11ceb9a", "remote_port": 29540, "local_port": 19540},
+    "resume_sep_b": {"benchmark": "sep_static", "gpu_id": 2, "gpu_uuid": "GPU-a73df9b7-2570-c960-2245-03a498c079e6", "remote_port": 29541, "local_port": 19541},
+    "resume_mmlu": {"benchmark": "mmlu_pro", "gpu_id": 5, "gpu_uuid": "GPU-94a1455d-46b3-8dff-7e36-4b31ba921df3", "remote_port": 29542, "local_port": 19542},
+    "resume_math": {"benchmark": "minerva_math", "gpu_id": 6, "gpu_uuid": "GPU-5bd42190-5088-780c-8ff5-6e20768003e6", "remote_port": 29543, "local_port": 19543}
+  }
+}

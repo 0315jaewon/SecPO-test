@@ -10,6 +10,10 @@ the reviewed agent-evaluation integrations for:
 - Llama-3.1-8B-Instruct with online adaptive training; and
 - Qwen3.6-27B with offline non-thinking training on saved strong attacks.
 
+An optional Tinker backend also supports the mentor-provided Qwen3.8-27B
+dataset and a model-neutral pre-rendered SecPO contract. See
+[`docs/TINKER.md`](docs/TINKER.md).
+
 ## Released artifacts
 
 | Artifact | Hugging Face repository |
@@ -41,6 +45,7 @@ excluded.
 | Component | Status | Boundary |
 | --- | --- | --- |
 | Benign-reference SecPO loss and trainer | Included and unit tested | Requires public base-model weights at runtime |
+| Tinker SecPO backend | Included, SDK-checked, and unit tested | Remote training requires Tinker credentials and incurs usage costs |
 | Qwen offline preferences | Exact split archive included | Redistribution license and content review remain publication gates |
 | Llama online training | Included | Atomic exchange plus source-backed current-policy PAIR backend; asynchronous scheduling, model serving, and weights remain runtime boundaries |
 | Six static SEP attacks | Included | Victim generator is an injected local callable |
@@ -85,6 +90,7 @@ examples/                Non-scientific local orchestration example
 scripts/                 Narrow training, evaluation, data, and audit CLIs
 src/secpo/attacks/       Provider-neutral Genetic, PAIR, and TAP search
 src/secpo/evaluation/    SEP, utility, AgentDojo, AgentDyn, and DTap adapters
+src/secpo/tinker/        Optional model-agnostic Tinker SecPO backend
 src/secpo/               Data contract, objective, trainer, online, and merge code
 templates/               Reviewed Qwen trust-role chat templates
 tests/                   Model-free unit and integration tests
@@ -108,6 +114,7 @@ extras are declared in `pyproject.toml`:
 
 ```bash
 pip install -e '.[distributed,test,evaluation]'
+pip install -e '.[tinker,test]'
 ```
 
 Keep `model_name_or_path` as a public model ID. A local cache path can be
@@ -152,6 +159,23 @@ fails if the match is missing or ambiguous. Read `data/DATASET_CARD.md` before
 redistributing the archive.
 
 ## Training
+
+### Qwen3.8-27B on Tinker
+
+Validate the authenticated mentor dataset and every tokenizer bound without
+creating a Tinker model:
+
+```bash
+secpo-train-tinker \
+  --config configs/train_qwen38_27b_tinker.json \
+  --preflight-only
+```
+
+The pinned snapshot contains 18,951 rows and produces 297 batches. The run
+configuration uses peak learning rate `8e-5`; the prior `1.2e-4` trial showed
+noticeable utility loss. Training, generic-model data preparation, checkpoint
+outputs, and thinking-mode constraints are documented in
+[`docs/TINKER.md`](docs/TINKER.md).
 
 ### Qwen3.6-27B offline
 
